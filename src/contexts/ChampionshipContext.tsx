@@ -10,6 +10,7 @@ import {
   ChampionshipHistory,
   GoalScorer
 } from '../models/types';
+import { useSupabase } from './SupabaseContext';
 
 interface ChampionshipContextType {
   championship: Championship | null;
@@ -86,9 +87,55 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
   const [pastChampions, setPastChampions] = useState<ChampionshipHistory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
+  const supabase = useSupabase();
+
   useEffect(() => {
-    const loadData = () => {
+    const loadData = async () => {
       try {
+        // Load from Supabase first, fallback to localStorage
+        const [
+          supabaseChampionship,
+          supabaseTeams,
+          supabasePlayers,
+          supabaseMatches,
+          supabaseTransfers,
+          supabaseHistory
+        ] = await Promise.all([
+          supabase.loadChampionship(),
+          supabase.loadTeams(),
+          supabase.loadPlayers(),
+          supabase.loadMatches(),
+          supabase.loadTransfers(),
+          supabase.loadHistory()
+        ]);
+
+        // If Supabase data exists, use it; otherwise use localStorage
+        if (supabaseChampionship || supabaseTeams.length > 0) {
+          setChampionship(supabaseChampionship);
+          setTeams(supabaseTeams);
+          setPlayers(supabasePlayers);
+          setMatches(supabaseMatches);
+          setTransfers(supabaseTransfers);
+          setPastChampions(supabaseHistory);
+        } else {
+          // Fallback to localStorage
+          const championshipData = localStorage.getItem(STORAGE_KEYS.CHAMPIONSHIP);
+          const teamsData = localStorage.getItem(STORAGE_KEYS.TEAMS);
+          const playersData = localStorage.getItem(STORAGE_KEYS.PLAYERS);
+          const matchesData = localStorage.getItem(STORAGE_KEYS.MATCHES);
+          const transfersData = localStorage.getItem(STORAGE_KEYS.TRANSFERS);
+          const pastChampionsData = localStorage.getItem(STORAGE_KEYS.PAST_CHAMPIONS);
+
+          setChampionship(championshipData ? JSON.parse(championshipData) : null);
+          setTeams(teamsData ? JSON.parse(teamsData) : []);
+          setPlayers(playersData ? JSON.parse(playersData) : []);
+          setMatches(matchesData ? JSON.parse(matchesData) : []);
+          setTransfers(transfersData ? JSON.parse(transfersData) : []);
+          setPastChampions(pastChampionsData ? JSON.parse(pastChampionsData) : []);
+        }
+      } catch (error) {
+        console.error("Error loading data:", error);
+        // Fallback to localStorage on error
         const championshipData = localStorage.getItem(STORAGE_KEYS.CHAMPIONSHIP);
         const teamsData = localStorage.getItem(STORAGE_KEYS.TEAMS);
         const playersData = localStorage.getItem(STORAGE_KEYS.PLAYERS);
@@ -102,24 +149,51 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
         setMatches(matchesData ? JSON.parse(matchesData) : []);
         setTransfers(transfersData ? JSON.parse(transfersData) : []);
         setPastChampions(pastChampionsData ? JSON.parse(pastChampionsData) : []);
-      } catch (error) {
-        console.error("Error loading data from localStorage:", error);
       } finally {
         setLoading(false);
       }
     };
 
     loadData();
+
+    // Subscribe to real-time changes
+    supabase.subscribeToChanges(() => {
+      loadData();
+    });
+
+    return () => {
+      supabase.unsubscribeFromChanges();
+    };
   }, []);
 
+  // Save to both localStorage and Supabase
   useEffect(() => {
     if (!loading) {
+      // Save to localStorage (immediate)
       localStorage.setItem(STORAGE_KEYS.CHAMPIONSHIP, JSON.stringify(championship));
       localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(teams));
       localStorage.setItem(STORAGE_KEYS.PLAYERS, JSON.stringify(players));
       localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(matches));
       localStorage.setItem(STORAGE_KEYS.TRANSFERS, JSON.stringify(transfers));
       localStorage.setItem(STORAGE_KEYS.PAST_CHAMPIONS, JSON.stringify(pastChampions));
+
+      // Save to Supabase (background)
+      const saveToSupabase = async () => {
+        try {
+          await Promise.all([
+            championship ? supabase.saveChampionship(championship) : Promise.resolve(),
+            supabase.saveTeams(teams),
+            supabase.savePlayers(players),
+            supabase.saveMatches(matches),
+            supabase.saveTransfers(transfers),
+            supabase.saveHistory(pastChampions)
+          ]);
+        } catch (error) {
+          console.error("Error saving to Supabase:", error);
+        }
+      };
+
+      saveToSupabase();
     }
   }, [championship, teams, players, matches, transfers, pastChampions, loading]);
 

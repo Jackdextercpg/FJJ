@@ -19,20 +19,20 @@ interface ChampionshipContextType {
   matches: Match[];
   transfers: Transfer[];
   pastChampions: ChampionshipHistory[];
-  
+
   // Teams
   addTeam: (team: Omit<Team, 'id' | 'createdAt' | 'updatedAt' | 'fjjdotyBalance' | 'players'>) => Team;
   updateTeam: (team: Team) => void;
   deleteTeam: (teamId: string) => void;
   getTeamById: (teamId: string) => Team | undefined;
-  
+
   // Players
   addPlayer: (player: Omit<Player, 'id' | 'createdAt' | 'updatedAt' | 'goals'>) => Player;
   updatePlayer: (player: Player) => void;
   deletePlayer: (playerId: string) => void;
   getPlayerById: (playerId: string) => Player | undefined;
   getTeamPlayers: (teamId: string) => Player[];
-  
+
   // Matches
   addMatch: (match: Omit<Match, 'id' | 'createdAt' | 'updatedAt'>) => Match;
   updateMatch: (match: Match) => void;
@@ -42,7 +42,7 @@ interface ChampionshipContextType {
   getTeamMatches: (teamId: string) => Match[];
   generateGroupMatches: () => void;
   generateKnockoutMatches: () => void;
-  
+
   // Championship
   createChampionship: (name: string, season: string, maxTeams?: number, scheduleType?: 'random' | 'manual') => Championship;
   updateChampionship: (championship: Championship) => void;
@@ -50,19 +50,19 @@ interface ChampionshipContextType {
   advanceToKnockout: () => void;
   finalizeChampionship: (winnerId: string, topScorerId: string, highlights: string) => void;
   resetChampionship: () => void;
-  
+
   // Standings and Stats
   calculateStandings: () => TeamStanding[];
   getTopScorers: (limit?: number) => Player[];
-  
+
   // Transfers
   transferPlayer: (playerId: string, fromTeamId: string | null, toTeamId: string, amount: number) => boolean;
   addTransfer: (transfer: Omit<Transfer, 'id' | 'createdAt' | 'updatedAt'>) => Transfer;
   getTeamTransfers: (teamId: string) => Transfer[];
-  
+
   // History
   addChampionshipHistory: (history: Omit<ChampionshipHistory, 'id' | 'createdAt' | 'updatedAt'>) => ChampionshipHistory;
-  
+
   // Loading state
   loading: boolean;
 }
@@ -207,7 +207,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
       createdAt: now,
       updatedAt: now
     };
-    
+
     setTeams(prevTeams => [...prevTeams, newTeam]);
     return newTeam;
   };
@@ -230,9 +230,9 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
           : player
       )
     );
-    
+
     setTeams(prevTeams => prevTeams.filter(team => team.id !== teamId));
-    
+
     if (championship && championship.teams.includes(teamId)) {
       setChampionship(prev => {
         if (!prev) return prev;
@@ -258,9 +258,9 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
       createdAt: now,
       updatedAt: now
     };
-    
+
     setPlayers(prevPlayers => [...prevPlayers, newPlayer]);
-    
+
     if (newPlayer.teamId) {
       setTeams(prevTeams => 
         prevTeams.map(team => 
@@ -274,13 +274,13 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
         )
       );
     }
-    
+
     return newPlayer;
   };
 
   const updatePlayer = (updatedPlayer: Player) => {
     const existingPlayer = players.find(p => p.id === updatedPlayer.id);
-    
+
     if (existingPlayer && existingPlayer.teamId !== updatedPlayer.teamId) {
       if (existingPlayer.teamId) {
         setTeams(prevTeams => 
@@ -295,7 +295,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
           )
         );
       }
-      
+
       if (updatedPlayer.teamId) {
         setTeams(prevTeams => 
           prevTeams.map(team => 
@@ -310,7 +310,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
         );
       }
     }
-    
+
     setPlayers(prevPlayers => 
       prevPlayers.map(player => 
         player.id === updatedPlayer.id 
@@ -322,7 +322,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
 
   const deletePlayer = (playerId: string) => {
     const player = players.find(p => p.id === playerId);
-    
+
     if (player && player.teamId) {
       setTeams(prevTeams => 
         prevTeams.map(team => 
@@ -336,7 +336,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
         )
       );
     }
-    
+
     setPlayers(prevPlayers => prevPlayers.filter(player => player.id !== playerId));
   };
 
@@ -356,9 +356,9 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
       createdAt: now,
       updatedAt: now
     };
-    
+
     setMatches(prevMatches => [...prevMatches, newMatch]);
-    
+
     if (championship) {
       setChampionship(prev => {
         if (!prev) return prev;
@@ -369,7 +369,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
         };
       });
     }
-    
+
     return newMatch;
   };
 
@@ -387,7 +387,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
     setMatches(prevMatches => 
       prevMatches.map(match => {
         if (match.id !== matchId) return match;
-        
+
         return {
           ...match,
           homeScore,
@@ -398,19 +398,19 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
         };
       })
     );
-    
+
     const playerGoalMap = new Map<string, number>();
-    
+
     scorers.forEach(scorer => {
       const currentGoals = playerGoalMap.get(scorer.playerId) || 0;
       playerGoalMap.set(scorer.playerId, currentGoals + scorer.count);
     });
-    
+
     setPlayers(prevPlayers => 
       prevPlayers.map(player => {
         const goals = playerGoalMap.get(player.id) || 0;
         if (goals === 0) return player;
-        
+
         return {
           ...player,
           goals: player.goals + goals,
@@ -418,7 +418,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
         };
       })
     );
-    
+
     const match = matches.find(m => m.id === matchId);
     if (match) {
       setTeams(prevTeams => 
@@ -426,10 +426,10 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
           if (team.id !== match.homeTeamId && team.id !== match.awayTeamId) {
             return team;
           }
-          
+
           let fjjdotyEarned = 0;
           const isHome = team.id === match.homeTeamId;
-          
+
           if (isHome && homeScore > awayScore) {
             fjjdotyEarned = 10000;
           } else if (!isHome && awayScore > homeScore) {
@@ -439,7 +439,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
           } else {
             fjjdotyEarned = 1000;
           }
-          
+
           return {
             ...team,
             fjjdotyBalance: team.fjjdotyBalance + fjjdotyEarned,
@@ -452,7 +452,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
 
   const deleteMatch = (matchId: string) => {
     setMatches(prevMatches => prevMatches.filter(match => match.id !== matchId));
-    
+
     if (championship && championship.matches.includes(matchId)) {
       setChampionship(prev => {
         if (!prev) return prev;
@@ -479,19 +479,19 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
     if (!championship) {
       return;
     }
-    
+
     if (championship.scheduleType === 'manual') {
       return;
     }
-    
+
     const teamIds = [...championship.teams];
     const now = new Date().toISOString();
     const newMatches: Match[] = [];
-    
+
     for (let i = 0; i < teamIds.length; i++) {
       for (let j = i + 1; j < teamIds.length; j++) {
         const matchDay = Math.floor(i * teamIds.length / 2) + 1;
-        
+
         const newMatch: Match = {
           id: uuidv4(),
           homeTeamId: teamIds[i],
@@ -507,13 +507,13 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
           createdAt: now,
           updatedAt: now
         };
-        
+
         newMatches.push(newMatch);
       }
     }
-    
+
     setMatches(prev => [...prev, ...newMatches]);
-    
+
     setChampionship(prev => {
       if (!prev) return prev;
       return {
@@ -523,7 +523,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
         updatedAt: now
       };
     });
-    
+
     return newMatches;
   };
 
@@ -531,18 +531,18 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
     if (!championship || championship.status !== 'group') {
       return;
     }
-    
+
     const standings = calculateStandings();
     const numTeamsInKnockout = championship.maxTeams >= 16 ? 8 : 4;
     const topTeams = standings.slice(0, numTeamsInKnockout).map(standing => standing.teamId);
-    
+
     if (topTeams.length < numTeamsInKnockout) {
       return;
     }
-    
+
     const now = new Date().toISOString();
     const newMatches: Match[] = [];
-    
+
     if (numTeamsInKnockout === 8) {
       for (let i = 0; i < 4; i++) {
         const quarterFinal: Match = {
@@ -563,9 +563,9 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
         newMatches.push(quarterFinal);
       }
     }
-    
+
     const semiFinalTeams = numTeamsInKnockout === 4 ? topTeams : ['TBD', 'TBD', 'TBD', 'TBD'];
-    
+
     const semifinal1: Match = {
       id: uuidv4(),
       homeTeamId: semiFinalTeams[0],
@@ -581,7 +581,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
       createdAt: now,
       updatedAt: now
     };
-    
+
     const semifinal2: Match = {
       id: uuidv4(),
       homeTeamId: semiFinalTeams[1],
@@ -597,7 +597,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
       createdAt: now,
       updatedAt: now
     };
-    
+
     const final: Match = {
       id: uuidv4(),
       homeTeamId: 'TBD',
@@ -613,11 +613,11 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
       createdAt: now,
       updatedAt: now
     };
-    
+
     newMatches.push(semifinal1, semifinal2, final);
-    
+
     setMatches(prev => [...prev, ...newMatches]);
-    
+
     setChampionship(prev => {
       if (!prev) return prev;
       return {
@@ -627,7 +627,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
         updatedAt: now
       };
     });
-    
+
     return newMatches;
   };
 
@@ -651,7 +651,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
       createdAt: now,
       updatedAt: now
     };
-    
+
     setChampionship(newChampionship);
     return newChampionship;
   };
@@ -667,7 +667,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
     if (!championship || championship.teams.length !== championship.maxTeams) {
       return false;
     }
-    
+
     setPlayers(prevPlayers => 
       prevPlayers.map(player => ({
         ...player,
@@ -675,32 +675,32 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
         updatedAt: new Date().toISOString()
       }))
     );
-    
+
     setMatches([]);
-    
+
     generateGroupMatches();
-    
+
     return true;
   };
 
   const advanceToKnockout = () => {
     if (!championship) return false;
-    
+
     const groupMatches = matches.filter(match => match.stage === 'group');
     const allPlayed = groupMatches.every(match => match.played);
-    
+
     if (!allPlayed) {
       return false;
     }
-    
+
     generateKnockoutMatches();
-    
+
     return true;
   };
 
   const finalizeChampionship = (winnerId: string, topScorerId: string, highlights: string) => {
     if (!championship) return false;
-    
+
     const championshipHistory: ChampionshipHistory = {
       id: uuidv4(),
       season: championship.season,
@@ -710,9 +710,9 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    
+
     setPastChampions(prev => [...prev, championshipHistory]);
-    
+
     setChampionship(prev => {
       if (!prev) return prev;
       return {
@@ -722,7 +722,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
         updatedAt: new Date().toISOString()
       };
     });
-    
+
     return true;
   };
 
@@ -733,7 +733,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
 
   const calculateStandings = (): TeamStanding[] => {
     const teamStandings = new Map<string, TeamStanding>();
-    
+
     teams.forEach(team => {
       teamStandings.set(team.id, {
         teamId: team.id,
@@ -747,25 +747,25 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
         goalDifference: 0
       });
     });
-    
+
     matches
       .filter(match => match.played && match.stage === 'group')
       .forEach(match => {
         const homeTeamStanding = teamStandings.get(match.homeTeamId);
         const awayTeamStanding = teamStandings.get(match.awayTeamId);
-        
+
         if (!homeTeamStanding || !awayTeamStanding || match.homeScore === null || match.awayScore === null) {
           return;
         }
-        
+
         homeTeamStanding.played += 1;
         homeTeamStanding.goalsFor += match.homeScore;
         homeTeamStanding.goalsAgainst += match.awayScore;
-        
+
         awayTeamStanding.played += 1;
         awayTeamStanding.goalsFor += match.awayScore;
         awayTeamStanding.goalsAgainst += match.homeScore;
-        
+
         if (match.homeScore > match.awayScore) {
           homeTeamStanding.points += 3;
           homeTeamStanding.won += 1;
@@ -780,25 +780,25 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
           homeTeamStanding.drawn += 1;
           awayTeamStanding.drawn += 1;
         }
-        
+
         homeTeamStanding.goalDifference = homeTeamStanding.goalsFor - homeTeamStanding.goalsAgainst;
         awayTeamStanding.goalDifference = awayTeamStanding.goalsFor - awayTeamStanding.goalsAgainst;
       });
-    
+
     return Array.from(teamStandings.values())
       .sort((a, b) => {
         if (a.points !== b.points) {
           return b.points - a.points;
         }
-        
+
         if (a.goalDifference !== b.goalDifference) {
           return b.goalDifference - a.goalDifference;
         }
-        
+
         if (a.goalsFor !== b.goalsFor) {
           return b.goalsFor - a.goalsFor;
         }
-        
+
         const teamA = teams.find(team => team.id === a.teamId);
         const teamB = teams.find(team => team.id === b.teamId);
         return (teamA?.name || '').localeCompare(teamB?.name || '');
@@ -815,21 +815,21 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
   const transferPlayer = (playerId: string, fromTeamId: string | null, toTeamId: string, amount: number): boolean => {
     const player = players.find(p => p.id === playerId);
     const toTeam = teams.find(t => t.id === toTeamId);
-    
+
     if (!player || !toTeam) {
       return false;
     }
-    
+
     if (fromTeamId) {
       const fromTeam = teams.find(t => t.id === fromTeamId);
       if (!fromTeam) {
         return false;
       }
-      
+
       if (toTeam.fjjdotyBalance < amount) {
         return false;
       }
-      
+
       setTeams(prevTeams => 
         prevTeams.map(team => {
           if (team.id === fromTeamId) {
@@ -855,7 +855,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
       if (toTeam.fjjdotyBalance < amount) {
         return false;
       }
-      
+
       setTeams(prevTeams => 
         prevTeams.map(team => {
           if (team.id === toTeamId) {
@@ -870,7 +870,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
         })
       );
     }
-    
+
     setPlayers(prevPlayers => 
       prevPlayers.map(p => 
         p.id === playerId 
@@ -878,7 +878,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
           : p
       )
     );
-    
+
     addTransfer({
       playerId,
       fromTeamId,
@@ -886,7 +886,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
       amount,
       date: new Date().toISOString(),
     });
-    
+
     return true;
   };
 
@@ -898,7 +898,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
       createdAt: now,
       updatedAt: now
     };
-    
+
     setTransfers(prev => [...prev, newTransfer]);
     return newTransfer;
   };
@@ -917,7 +917,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
       createdAt: now,
       updatedAt: now
     };
-    
+
     setPastChampions(prev => [...prev, newHistory]);
     return newHistory;
   };
@@ -930,19 +930,19 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
     transfers,
     pastChampions,
     loading,
-    
+
     addTeam,
     updateTeam,
     deleteTeam,
     getTeamById,
-    
-    
+
+
     addPlayer,
     updatePlayer,
     deletePlayer,
     getPlayerById,
     getTeamPlayers,
-    
+
     addMatch,
     updateMatch,
     updateMatchResult,
@@ -951,21 +951,21 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
     getTeamMatches,
     generateGroupMatches,
     generateKnockoutMatches,
-    
+
     createChampionship,
     updateChampionship,
     startChampionship,
     advanceToKnockout,
     finalizeChampionship,
     resetChampionship,
-    
+
     calculateStandings,
     getTopScorers,
-    
+
     transferPlayer,
     addTransfer,
     getTeamTransfers,
-    
+
     addChampionshipHistory
   };
 

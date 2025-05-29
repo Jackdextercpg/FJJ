@@ -46,7 +46,7 @@ export interface GoalScorer {
 export interface IndividualGoal {
   playerId: string;
   teamId: string;
-  goals: number;
+  count: number;
 }
 
 // Championship related types

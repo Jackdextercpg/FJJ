@@ -394,16 +394,19 @@ const AdminMatches: React.FC = () => {
             </div>
           </div>
 
-          <div className="mb-6">
+<div className="mb-6">
             <h4 className="font-semibold mb-2 flex items-center">
               <Target className="w-4 h-4 mr-2" />
-              Gols Marcados
+              Gols Estatísticos dos Jogadores
             </h4>
+            <p className="text-sm text-gray-600 mb-4">
+              Os gols abaixo são apenas para estatísticas individuais e não afetam o placar da partida.
+            </p>
 
             <div className="bg-white p-4 rounded-lg mb-4">
-              {scorers.length > 0 ? (
+              {individualGoals.length > 0 ? (
                 <ul className="space-y-2">
-                  {scorers.map((scorer, index) => {
+                  {individualGoals.map((scorer, index) => {
                     const player = getPlayerById(scorer.playerId);
                     const team = getTeamById(scorer.teamId);
 
@@ -416,7 +419,7 @@ const AdminMatches: React.FC = () => {
                         <div className="flex items-center">
                           <span className="mr-3">{scorer.count} {scorer.count === 1 ? 'gol' : 'gols'}</span>
                           <button
-                            onClick={() => handleRemoveScorer(index)}
+                            onClick={() => setIndividualGoals(prev => prev.filter((_, i) => i !== index))}
                             className="text-red-500 hover:text-red-700"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -428,62 +431,13 @@ const AdminMatches: React.FC = () => {
                 </ul>
               ) : (
                 <p className="text-gray-500 text-center py-2">
-                  Nenhum gol marcado ainda
+                  Nenhum gol estatístico registrado
                 </p>
               )}
             </div>
-
-            <div className="bg-white p-4 rounded-lg">
-              <h5 className="font-medium mb-2">Adicionar Gol</h5>
-
-              <div className="mb-2">
-                <label className="block text-sm mb-1">Jogador</label>
-                <select
-                  className="input w-full"
-                  value={selectedPlayer || ''}
-                  onChange={(e) => setSelectedPlayer(e.target.value)}
-                >
-                  <option value="">Selecione um jogador</option>
-                  <optgroup label={getTeamById(selectedMatch.homeTeamId)?.name || 'Time da Casa'}>
-                    {getTeamPlayers(selectedMatch.homeTeamId).map(player => (
-                      <option key={player.id} value={player.id}>
-                        {player.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label={getTeamById(selectedMatch.awayTeamId)?.name || 'Time Visitante'}>
-                    {getTeamPlayers(selectedMatch.awayTeamId).map(player => (
-                      <option key={player.id} value={player.id}>
-                        {player.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
-              </div>
-
-              <div className="mb-3">
-                <label className="block text-sm mb-1">Número de Gols</label>
-                <input
-                  type="number"
-                  min="1"
-                  className="input w-full"
-                  value={goalCount}
-                  onChange={(e) => setGoalCount(parseInt(e.target.value) || 1)}
-                />
-              </div>
-
-              <button
-                onClick={handleAddScorer}
-                disabled={!selectedPlayer}
-                className="btn btn-secondary w-full"
-              >
-                <PlusCircle className="w-4 h-4 mr-2" />
-                Adicionar Gol
-              </button>
-            </div>
           </div>
-          
-          <div className="bg-white p-4 rounded-lg">
+
+          <div className="bg-white p-4 rounded-lg mb-6">
               <h5 className="font-medium mb-2">Adicionar Gol Estatístico</h5>
 
               <div className="mb-2">
@@ -557,7 +511,7 @@ const AdminMatches: React.FC = () => {
                 className="btn btn-secondary w-full"
               >
                 <PlusCircle className="w-4 h-4 mr-2" />
-                Adicionar Gol
+                Adicionar Gol Estatístico
               </button>
             </div>
 

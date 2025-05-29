@@ -36,7 +36,7 @@ interface ChampionshipContextType {
   // Matches
   addMatch: (match: Omit<Match, 'id' | 'createdAt' | 'updatedAt'>) => Match;
   updateMatch: (match: Match) => void;
-  updateMatchResult: (matchId: string, homeScore: number, awayScore: number, scorers: GoalScorer[]) => void;
+  updateMatchResult: (matchId: string, homeScore: number, awayScore: number, scorers: GoalScorer[], individualGoals?: GoalScorer[]) => void;
   deleteMatch: (matchId: string) => void;
   getMatchById: (matchId: string) => Match | undefined;
   getTeamMatches: (teamId: string) => Match[];
@@ -383,28 +383,33 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
     );
   };
 
-  const updateMatchResult = (matchId: string, homeScore: number, awayScore: number, scorers: GoalScorer[]) => {
+  const updateMatchResult = (matchId: string, homeScore: number, awayScore: number, scorers: GoalScorer[], individualGoals?: GoalScorer[]) => {
     setMatches(prevMatches => 
-      prevMatches.map(match => {
-        if (match.id !== matchId) return match;
-
-        return {
-          ...match,
-          homeScore,
-          awayScore,
-          played: true,
-          scorers,
-          updatedAt: new Date().toISOString()
-        };
-      })
+      prevMatches.map(match => 
+        match.id === matchId 
+          ? { 
+              ...match, 
+              homeScore, 
+              awayScore, 
+              played: true, 
+              scorers: [], // Clear scorers - not used anymore
+              individualGoals: individualGoals || [],
+              updatedAt: new Date().toISOString() 
+            }
+          : match
+      )
     );
 
+    // Update player goal statistics based only on individualGoals
     const playerGoalMap = new Map<string, number>();
 
-    scorers.forEach(scorer => {
-      const currentGoals = playerGoalMap.get(scorer.playerId) || 0;
-      playerGoalMap.set(scorer.playerId, currentGoals + scorer.count);
-    });
+    // Only use individualGoals for player statistics
+    if (individualGoals) {
+      individualGoals.forEach(scorer => {
+        const currentGoals = playerGoalMap.get(scorer.playerId) || 0;
+        playerGoalMap.set(scorer.playerId, currentGoals + scorer.count);
+      });
+    }
 
     setPlayers(prevPlayers => 
       prevPlayers.map(player => {
@@ -782,7 +787,7 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
         }
 
         homeTeamStanding.goalDifference = homeTeamStanding.goalsFor - homeTeamStanding.goalsAgainst;
-        awayTeamStanding.goalDifference = awayTeamStanding.goalsFor - awayTeamStanding.goalsAgainst;
+        awayTeamStanding.goalDifference = awayTeamStanding.goalsFor - homeTeamStanding.goalsAgainst;
       });
 
     return Array.from(teamStandings.values())

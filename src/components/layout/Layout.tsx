@@ -13,7 +13,7 @@ const Layout: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="text-center">
           <Soccer className="w-16 h-16 text-primary mx-auto animate-bounce" />
-          <p className="mt-4 text-xl font-semibold">Carregando FJJ...</p>
+          <p className="mt-4 text-xl font-semibold">Carregando FJJ Brasileirão...</p>
         </div>
       </div>
     );

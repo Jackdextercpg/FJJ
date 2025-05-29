@@ -23,27 +23,19 @@ export interface Player extends BaseModel {
 
 // Match related types
 export interface Match extends BaseModel {
-  id: string;
   homeTeamId: string;
   awayTeamId: string;
-  date: string;
   homeScore: number | null;
   awayScore: number | null;
+  date: string;
   played: boolean;
   stage: 'group' | 'semifinal' | 'final';
   scorers: GoalScorer[];
-  individualGoals: IndividualGoal[];
   matchDay: number;
   isManual?: boolean; // New field to track if match was manually created
 }
 
 export interface GoalScorer {
-  playerId: string;
-  teamId: string;
-  count: number;
-}
-
-export interface IndividualGoal {
   playerId: string;
   teamId: string;
   count: number;

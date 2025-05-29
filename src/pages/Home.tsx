@@ -49,7 +49,7 @@ const Home: React.FC = () => {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold flex items-center">
             <Shield className="mr-2 text-primary" />
-            FJJ
+            FJJ Brasileirão Série A
           </h2>
 
           {championship?.status === 'setup' && (

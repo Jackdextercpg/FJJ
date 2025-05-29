@@ -10,11 +10,11 @@ const Footer: React.FC = () => {
         <div className="flex flex-col md:flex-row justify-between items-center">
           <div className="flex items-center mb-4 md:mb-0">
             <Trophy className="w-6 h-6 mr-2" />
-            <span className="text-lg font-bold">FJJ</span>
+            <span className="text-lg font-bold">FJJ BRASILEIRÃO SÉRIE A</span>
           </div>
           
           <div className="text-sm text-gray-200">
-            © {currentYear} FJJ. Todos os direitos reservados. Criado por Jon
+            © {currentYear} FJJ Brasileirão. Todos os direitos reservados.
           </div>
           
           <div className="mt-4 md:mt-0 flex items-center gap-4">

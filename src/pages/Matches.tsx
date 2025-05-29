@@ -1,109 +1,150 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Calendar, CalendarDays, Filter } from 'lucide-react';
 import { useChampionship } from '../contexts/ChampionshipContext';
 import MatchCard from '../components/common/MatchCard';
-import { Calendar, Trophy, Users } from 'lucide-react';
 
 const Matches: React.FC = () => {
-  const { matches, teams } = useChampionship();
+  const { matches } = useChampionship();
+  const [filter, setFilter] = useState<'all' | 'upcoming' | 'played' | 'group' | 'semifinal' | 'final'>('all');
 
-  const groupMatches = matches.filter(match => match.stage === 'group');
-  const semifinalMatches = matches.filter(match => match.stage === 'semifinal');
-  const finalMatches = matches.filter(match => match.stage === 'final');
-
-  // Agrupar jogos da fase de grupos por rodada
-  const groupMatchesByRound = groupMatches.reduce((acc, match) => {
-    const round = match.matchDay || 1;
-    if (!acc[round]) {
-      acc[round] = [];
+  // Group matches by matchDay
+  const matchesByDay = matches.reduce<Record<number | string, typeof matches>>((acc, match) => {
+    let key: number | string;
+    
+    if (match.stage === 'group') {
+      key = `Rodada ${match.matchDay}`;
+    } else if (match.stage === 'semifinal') {
+      key = 'Semifinais';
+    } else if (match.stage === 'final') {
+      key = 'Final';
+    } else {
+      key = match.matchDay;
     }
-    acc[round].push(match);
+    
+    if (!acc[key]) {
+      acc[key] = [];
+    }
+    
+    acc[key].push(match);
     return acc;
-  }, {} as Record<number, typeof groupMatches>);
+  }, {});
 
-  // Ordenar as rodadas
-  const sortedRounds = Object.keys(groupMatchesByRound)
-    .map(Number)
-    .sort((a, b) => a - b);
+  // Filter matches based on the selected filter
+  const filteredMatchDays = Object.entries(matchesByDay)
+    .filter(([key, dayMatches]) => {
+      if (filter === 'all') return true;
+      if (filter === 'upcoming') return dayMatches.some(match => !match.played);
+      if (filter === 'played') return dayMatches.some(match => match.played);
+      if (filter === 'group') return dayMatches.some(match => match.stage === 'group');
+      if (filter === 'semifinal') return dayMatches.some(match => match.stage === 'semifinal');
+      if (filter === 'final') return dayMatches.some(match => match.stage === 'final');
+      return true;
+    })
+    .sort((a, b) => {
+      // Custom sort: Final, Semifinais, then Rodadas in ascending order
+      if (a[0] === 'Final') return 1;
+      if (b[0] === 'Final') return -1;
+      if (a[0] === 'Semifinais') return 1;
+      if (b[0] === 'Semifinais') return -1;
+      
+      // Extract matchDay number for sorting rodadas
+      const aNum = parseInt(a[0].replace('Rodada ', ''));
+      const bNum = parseInt(b[0].replace('Rodada ', ''));
+      return aNum - bNum;
+    });
+
+  const filterMatches = (dayMatches: typeof matches) => {
+    if (filter === 'all') return dayMatches;
+    if (filter === 'upcoming') return dayMatches.filter(match => !match.played);
+    if (filter === 'played') return dayMatches.filter(match => match.played);
+    if (filter === 'group') return dayMatches.filter(match => match.stage === 'group');
+    if (filter === 'semifinal') return dayMatches.filter(match => match.stage === 'semifinal');
+    if (filter === 'final') return dayMatches.filter(match => match.stage === 'final');
+    return dayMatches;
+  };
 
   return (
-    <div className="space-y-8">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold mb-2">Jogos do Campeonato</h1>
-        <p className="text-gray-600">Acompanhe todos os jogos da temporada</p>
+    <div>
+      <h1 className="text-2xl font-bold mb-6 flex items-center">
+        <Calendar className="mr-2 text-primary" />
+        Jogos do Campeonato
+      </h1>
+
+      <div className="mb-6 flex flex-wrap gap-2">
+        <button 
+          onClick={() => setFilter('all')} 
+          className={`btn ${filter === 'all' ? 'btn-primary' : 'btn-outline'}`}
+        >
+          Todos
+        </button>
+        <button 
+          onClick={() => setFilter('upcoming')} 
+          className={`btn ${filter === 'upcoming' ? 'btn-primary' : 'btn-outline'}`}
+        >
+          Próximos
+        </button>
+        <button 
+          onClick={() => setFilter('played')} 
+          className={`btn ${filter === 'played' ? 'btn-primary' : 'btn-outline'}`}
+        >
+          Finalizados
+        </button>
+        <button 
+          onClick={() => setFilter('group')} 
+          className={`btn ${filter === 'group' ? 'btn-primary' : 'btn-outline'}`}
+        >
+          Fase de Grupos
+        </button>
+        <button 
+          onClick={() => setFilter('semifinal')} 
+          className={`btn ${filter === 'semifinal' ? 'btn-primary' : 'btn-outline'}`}
+        >
+          Semifinais
+        </button>
+        <button 
+          onClick={() => setFilter('final')} 
+          className={`btn ${filter === 'final' ? 'btn-primary' : 'btn-outline'}`}
+        >
+          Final
+        </button>
       </div>
 
-      {/* Fase de Grupos */}
-      <section>
-        <div className="flex items-center gap-2 mb-6">
-          <Users className="text-primary" size={24} />
-          <h2 className="text-2xl font-bold">Fase de Grupos</h2>
-        </div>
-
-        {sortedRounds.map(round => (
-          <div key={round} className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar className="text-gray-600" size={20} />
-              <h3 className="text-xl font-semibold">Rodada {round}</h3>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {groupMatchesByRound[round]
-                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                .map(match => (
-                  <MatchCard 
-                    key={match.id} 
-                    match={match} 
-                    teams={teams} 
-                  />
-                ))}
-            </div>
+      {matches.length > 0 ? (
+        filteredMatchDays.length > 0 ? (
+          filteredMatchDays.map(([day, dayMatches]) => {
+            const filteredDayMatches = filterMatches(dayMatches);
+            if (filteredDayMatches.length === 0) return null;
+            
+            return (
+              <div key={day} className="mb-8">
+                <h2 className="text-xl font-semibold mb-4 flex items-center">
+                  <CalendarDays className="mr-2 text-primary" />
+                  {day}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredDayMatches.map(match => (
+                    <MatchCard key={match.id} match={match} />
+                  ))}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="card p-8 text-center">
+            <Filter className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <h3 className="text-xl font-semibold">Nenhum jogo encontrado</h3>
+            <p className="text-gray-500 mt-2">
+              Tente outro filtro para ver os jogos
+            </p>
           </div>
-        ))}
-      </section>
-
-      {/* Semifinais */}
-      {semifinalMatches.length > 0 && (
-        <section>
-          <div className="flex items-center gap-2 mb-6">
-            <Trophy className="text-primary" size={24} />
-            <h2 className="text-2xl font-bold">Semifinais</h2>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            {semifinalMatches
-              .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-              .map(match => (
-                <MatchCard 
-                  key={match.id} 
-                  match={match} 
-                  teams={teams} 
-                />
-              ))}
-          </div>
-        </section>
-      )}
-
-      {/* Final */}
-      {finalMatches.length > 0 && (
-        <section>
-          <div className="flex items-center gap-2 mb-6">
-            <Trophy className="text-primary" size={24} />
-            <h2 className="text-2xl font-bold">Final</h2>
-          </div>
-          <div className="flex justify-center">
-            {finalMatches.map(match => (
-              <MatchCard 
-                key={match.id} 
-                match={match} 
-                teams={teams} 
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {matches.length === 0 && (
-        <div className="text-center py-12">
-          <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500 text-lg">Nenhum jogo cadastrado ainda</p>
+        )
+      ) : (
+        <div className="card p-8 text-center">
+          <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+          <h3 className="text-xl font-semibold">Nenhum jogo agendado</h3>
+          <p className="text-gray-500 mt-2">
+            Os jogos serão gerados quando o campeonato começar
+          </p>
         </div>
       )}
     </div>

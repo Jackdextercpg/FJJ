@@ -16,22 +16,19 @@ const AdminMatches: React.FC = () => {
     addMatch,
     teams
   } = useChampionship();
-
+  
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-
+  
   const [resultForm, setResultForm] = useState({
     homeScore: 0,
     awayScore: 0
   });
-
+  
   const [scorers, setScorers] = useState<GoalScorer[]>([]);
-  const [individualGoals, setIndividualGoals] = useState<GoalScorer[]>([]);
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [goalCount, setGoalCount] = useState(1);
-  const [selectedPlayerForStats, setSelectedPlayerForStats] = useState<string | null>(null);
-  const [statsGoalCount, setStatsGoalCount] = useState(1);
 
   const [isAddingMatch, setIsAddingMatch] = useState(false);
   const [newMatch, setNewMatch] = useState({
@@ -78,15 +75,15 @@ const AdminMatches: React.FC = () => {
       setError('Erro ao adicionar o jogo');
     }
   };
-
+  
   const groupMatches = matches
     .filter(match => match.stage === 'group')
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
+  
   const semifinalMatches = matches
     .filter(match => match.stage === 'semifinal')
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
+  
   const finalMatches = matches
     .filter(match => match.stage === 'final')
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -94,16 +91,16 @@ const AdminMatches: React.FC = () => {
   const updateFinalTeams = () => {
     const finalMatch = matches.find(m => m.stage === 'final');
     const semifinalMatches = matches.filter(m => m.stage === 'semifinal' && m.played);
-
+    
     if (finalMatch && semifinalMatches.length === 2) {
       const semi1Winner = semifinalMatches[0].homeScore! > semifinalMatches[0].awayScore!
         ? semifinalMatches[0].homeTeamId
         : semifinalMatches[0].awayTeamId;
-
+        
       const semi2Winner = semifinalMatches[1].homeScore! > semifinalMatches[1].awayScore!
         ? semifinalMatches[1].homeTeamId
         : semifinalMatches[1].awayTeamId;
-
+      
       updateMatch({
         ...finalMatch,
         homeTeamId: semi1Winner,
@@ -119,27 +116,24 @@ const AdminMatches: React.FC = () => {
       awayScore: match.awayScore || 0
     });
     setScorers(match.scorers || []);
-    setIndividualGoals(match.individualGoals || []);
     setError(null);
     setSuccess(null);
     setSelectedPlayer(null);
     setGoalCount(1);
-    setSelectedPlayerForStats(null);
-    setStatsGoalCount(1);
   };
-
+  
   const handleCloseMatchForm = () => {
     setSelectedMatch(null);
   };
-
+  
   const handleAddScorer = () => {
     if (!selectedPlayer || !selectedMatch) return;
-
+    
     const player = getPlayerById(selectedPlayer);
     if (!player) return;
-
+    
     const existingScorer = scorers.find(s => s.playerId === selectedPlayer);
-
+    
     if (existingScorer) {
       setScorers(prev => 
         prev.map(s => 
@@ -158,62 +152,61 @@ const AdminMatches: React.FC = () => {
         }
       ]);
     }
-
+    
     setSelectedPlayer(null);
     setGoalCount(1);
   };
-
+  
   const handleRemoveScorer = (index: number) => {
     setScorers(prev => prev.filter((_, i) => i !== index));
   };
-
+  
   const handleSaveResult = () => {
     if (!selectedMatch) return;
-
+    
     const homeGoals = scorers
       .filter(s => s.teamId === selectedMatch.homeTeamId)
       .reduce((total, scorer) => total + scorer.count, 0);
-
+    
     const awayGoals = scorers
       .filter(s => s.teamId === selectedMatch.awayTeamId)
       .reduce((total, scorer) => total + scorer.count, 0);
-
+    
     if (homeGoals !== resultForm.homeScore) {
       setError(`Os gols marcados pelos jogadores do time da casa (${homeGoals}) não correspondem ao placar (${resultForm.homeScore})`);
       return;
     }
-
+    
     if (awayGoals !== resultForm.awayScore) {
       setError(`Os gols marcados pelos jogadores do time visitante (${awayGoals}) não correspondem ao placar (${resultForm.awayScore})`);
       return;
     }
-
+    
     try {
       updateMatchResult(
         selectedMatch.id,
         resultForm.homeScore,
         resultForm.awayScore,
-        scorers,
-        individualGoals
+        scorers
       );
-
+      
       if (selectedMatch.stage === 'semifinal') {
         const allSemifinalsPlayed = matches
           .filter(m => m.stage === 'semifinal')
           .every(m => m.played);
-
+          
         if (allSemifinalsPlayed) {
           updateFinalTeams();
         }
       }
-
+      
       setSuccess('Resultado salvo com sucesso');
       setSelectedMatch(null);
     } catch (err) {
       setError('Erro ao salvar o resultado');
     }
   };
-
+  
   const getStageName = (match: Match) => {
     switch (match.stage) {
       case 'group':
@@ -231,7 +224,7 @@ const AdminMatches: React.FC = () => {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold">Gerenciar Jogos</h2>
-
+        
         {championship?.scheduleType === 'manual' && championship.status === 'setup' && (
           <button 
             onClick={() => setIsAddingMatch(true)} 
@@ -242,7 +235,7 @@ const AdminMatches: React.FC = () => {
           </button>
         )}
       </div>
-
+      
       {error && (
         <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
           <div className="flex">
@@ -255,7 +248,7 @@ const AdminMatches: React.FC = () => {
           </div>
         </div>
       )}
-
+      
       {success && (
         <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
           <div className="flex">
@@ -273,7 +266,7 @@ const AdminMatches: React.FC = () => {
       {isAddingMatch && (
         <div className="bg-gray-50 p-6 rounded-lg mb-6">
           <h3 className="text-lg font-semibold mb-4">Adicionar Novo Jogo</h3>
-
+          
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1">Time da Casa</label>
@@ -341,7 +334,7 @@ const AdminMatches: React.FC = () => {
           </div>
         </div>
       )}
-
+      
       {selectedMatch ? (
         <div className="bg-gray-50 p-6 rounded-lg mb-6">
           <div className="flex justify-between items-center mb-4">
@@ -355,7 +348,7 @@ const AdminMatches: React.FC = () => {
               Fechar
             </button>
           </div>
-
+          
           <div className="mb-6">
             <div className="flex items-center justify-center mb-4">
               <div className="text-right flex-1">
@@ -368,7 +361,7 @@ const AdminMatches: React.FC = () => {
                 <p className="font-semibold">{getTeamById(selectedMatch.awayTeamId)?.name}</p>
               </div>
             </div>
-
+            
             <div className="flex items-center justify-center mb-6">
               <div className="flex-1">
                 <input
@@ -393,23 +386,20 @@ const AdminMatches: React.FC = () => {
               </div>
             </div>
           </div>
-
-<div className="mb-6">
+          
+          <div className="mb-6">
             <h4 className="font-semibold mb-2 flex items-center">
               <Target className="w-4 h-4 mr-2" />
-              Gols Estatísticos dos Jogadores
+              Gols Marcados
             </h4>
-            <p className="text-sm text-gray-600 mb-4">
-              Os gols abaixo são apenas para estatísticas individuais e não afetam o placar da partida.
-            </p>
-
+            
             <div className="bg-white p-4 rounded-lg mb-4">
-              {individualGoals.length > 0 ? (
+              {scorers.length > 0 ? (
                 <ul className="space-y-2">
-                  {individualGoals.map((scorer, index) => {
+                  {scorers.map((scorer, index) => {
                     const player = getPlayerById(scorer.playerId);
                     const team = getTeamById(scorer.teamId);
-
+                    
                     return (
                       <li key={index} className="flex justify-between items-center">
                         <div>
@@ -419,7 +409,7 @@ const AdminMatches: React.FC = () => {
                         <div className="flex items-center">
                           <span className="mr-3">{scorer.count} {scorer.count === 1 ? 'gol' : 'gols'}</span>
                           <button
-                            onClick={() => setIndividualGoals(prev => prev.filter((_, i) => i !== index))}
+                            onClick={() => handleRemoveScorer(index)}
                             className="text-red-500 hover:text-red-700"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -431,21 +421,20 @@ const AdminMatches: React.FC = () => {
                 </ul>
               ) : (
                 <p className="text-gray-500 text-center py-2">
-                  Nenhum gol estatístico registrado
+                  Nenhum gol marcado ainda
                 </p>
               )}
             </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg mb-6">
-              <h5 className="font-medium mb-2">Adicionar Gol Estatístico</h5>
-
+            
+            <div className="bg-white p-4 rounded-lg">
+              <h5 className="font-medium mb-2">Adicionar Gol</h5>
+              
               <div className="mb-2">
                 <label className="block text-sm mb-1">Jogador</label>
                 <select
                   className="input w-full"
-                  value={selectedPlayerForStats || ''}
-                  onChange={(e) => setSelectedPlayerForStats(e.target.value)}
+                  value={selectedPlayer || ''}
+                  onChange={(e) => setSelectedPlayer(e.target.value)}
                 >
                   <option value="">Selecione um jogador</option>
                   <optgroup label={getTeamById(selectedMatch.homeTeamId)?.name || 'Time da Casa'}>
@@ -464,57 +453,29 @@ const AdminMatches: React.FC = () => {
                   </optgroup>
                 </select>
               </div>
-
+              
               <div className="mb-3">
                 <label className="block text-sm mb-1">Número de Gols</label>
                 <input
                   type="number"
                   min="1"
                   className="input w-full"
-                  value={statsGoalCount}
-                  onChange={(e) => setStatsGoalCount(parseInt(e.target.value) || 1)}
+                  value={goalCount}
+                  onChange={(e) => setGoalCount(parseInt(e.target.value) || 1)}
                 />
               </div>
-
+              
               <button
-                onClick={() => {
-                     if (!selectedPlayerForStats || !selectedMatch) return;
-
-                    const player = getPlayerById(selectedPlayerForStats);
-                    if (!player) return;
-
-                    const existingScorer = individualGoals.find(s => s.playerId === selectedPlayerForStats);
-
-                    if (existingScorer) {
-                      setIndividualGoals(prev => 
-                        prev.map(s => 
-                          s.playerId === selectedPlayerForStats 
-                            ? { ...s, count: s.count + statsGoalCount }
-                            : s
-                        )
-                      );
-                    } else {
-                      setIndividualGoals(prev => [
-                        ...prev,
-                        {
-                          playerId: selectedPlayerForStats,
-                          teamId: player.teamId || '',
-                          count: statsGoalCount
-                        }
-                      ]);
-                    }
-
-                    setSelectedPlayerForStats(null);
-                    setStatsGoalCount(1);
-                }}
-                disabled={!selectedPlayerForStats}
+                onClick={handleAddScorer}
+                disabled={!selectedPlayer}
                 className="btn btn-secondary w-full"
               >
                 <PlusCircle className="w-4 h-4 mr-2" />
-                Adicionar Gol Estatístico
+                Adicionar Gol
               </button>
             </div>
-
+          </div>
+          
           <button 
             onClick={handleSaveResult}
             className="btn btn-primary w-full"
@@ -551,7 +512,7 @@ const AdminMatches: React.FC = () => {
               </div>
             </div>
           ) : null}
-
+          
           {groupMatches.length > 0 && (
             <div className="mb-8">
               <h3 className="text-lg font-semibold mb-4">Fase de Grupos</h3>
@@ -560,7 +521,7 @@ const AdminMatches: React.FC = () => {
                   const homeTeam = getTeamById(match.homeTeamId);
                   const awayTeam = getTeamById(match.awayTeamId);
                   const matchDate = new Date(match.date);
-
+                  
                   return (
                     <div 
                       key={match.id} 
@@ -582,7 +543,7 @@ const AdminMatches: React.FC = () => {
                             </span>
                           )}
                         </div>
-
+                        
                         <div className="flex justify-between items-center mb-3">
                           <div className="text-right flex-1">
                             <p className="font-semibold">{homeTeam?.name}</p>
@@ -604,7 +565,7 @@ const AdminMatches: React.FC = () => {
                             <p className="font-semibold">{awayTeam?.name}</p>
                           </div>
                         </div>
-
+                        
                         <div className="text-sm text-gray-600 flex items-center">
                           <Calendar className="w-3 h-3 mr-1" />
                           <span>{matchDate.toLocaleDateString()}</span>
@@ -616,7 +577,7 @@ const AdminMatches: React.FC = () => {
               </div>
             </div>
           )}
-
+          
           {semifinalMatches.length > 0 && (
             <div className="mb-8">
               <h3 className="text-lg font-semibold mb-4">Semifinais</h3>
@@ -625,7 +586,7 @@ const AdminMatches: React.FC = () => {
                   const homeTeam = getTeamById(match.homeTeamId);
                   const awayTeam = getTeamById(match.awayTeamId);
                   const matchDate = new Date(match.date);
-
+                  
                   return (
                     <div 
                       key={match.id} 
@@ -647,7 +608,7 @@ const AdminMatches: React.FC = () => {
                             </span>
                           )}
                         </div>
-
+                        
                         <div className="flex justify-between items-center mb-3">
                           <div className="text-right flex-1">
                             <p className="font-semibold">{homeTeam?.name}</p>
@@ -669,7 +630,7 @@ const AdminMatches: React.FC = () => {
                             <p className="font-semibold">{awayTeam?.name}</p>
                           </div>
                         </div>
-
+                        
                         <div className="text-sm text-gray-600 flex items-center">
                           <Calendar className="w-3 h-3 mr-1" />
                           <span>{matchDate.toLocaleDateString()}</span>
@@ -681,7 +642,7 @@ const AdminMatches: React.FC = () => {
               </div>
             </div>
           )}
-
+          
           {finalMatches.length > 0 && (
             <div>
               <h3 className="text-lg font-semibold mb-4">Final</h3>
@@ -689,38 +650,38 @@ const AdminMatches: React.FC = () => {
                 {finalMatches.map(match => {
                   let homeTeamId = match.homeTeamId;
                   let awayTeamId = match.awayTeamId;
-
+                  
                   if (homeTeamId === 'TBD' || awayTeamId === 'TBD') {
                     const playedSemis = semifinalMatches.filter(m => m.played);
-
+                    
                     if (playedSemis.length === 2) {
                       const semi1Winner = playedSemis[0].homeScore !== null && playedSemis[0].awayScore !== null
                         ? playedSemis[0].homeScore > playedSemis[0].awayScore
                           ? playedSemis[0].homeTeamId
                           : playedSemis[0].awayTeamId
                         : 'TBD';
-
+                        
                       const semi2Winner = playedSemis[1].homeScore !== null && playedSemis[1].awayScore !== null
                         ? playedSemis[1].homeScore > playedSemis[1].awayScore
                           ? playedSemis[1].homeTeamId
                           : playedSemis[1].awayTeamId
                         : 'TBD';
-
+                        
                       homeTeamId = semi1Winner;
                       awayTeamId = semi2Winner;
                     }
                   }
-
+                  
                   const homeTeam = typeof homeTeamId === 'string' && homeTeamId !== 'TBD' 
                     ? getTeamById(homeTeamId) 
                     : null;
-
+                    
                   const awayTeam = typeof awayTeamId === 'string' && awayTeamId !== 'TBD'
                     ? getTeamById(awayTeamId)
                     : null;
-
+                    
                   const matchDate = new Date(match.date);
-
+                  
                   return (
                     <div 
                       key={match.id} 
@@ -742,7 +703,7 @@ const AdminMatches: React.FC = () => {
                             </span>
                           )}
                         </div>
-
+                        
                         <div className="flex justify-between items-center mb-3">
                           <div className="text-right flex-1">
                             <p className="font-semibold">{homeTeam?.name || 'A confirmar'}</p>
@@ -764,7 +725,7 @@ const AdminMatches: React.FC = () => {
                             <p className="font-semibold">{awayTeam?.name || 'A confirmar'}</p>
                           </div>
                         </div>
-
+                        
                         <div className="text-sm text-gray-600 flex items-center">
                           <Calendar className="w-3 h-3 mr-1" />
                           <span>{matchDate.toLocaleDateString()}</span>

@@ -155,15 +155,6 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
     };
 
     loadData();
-
-    // Subscribe to real-time changes
-    supabase.subscribeToChanges(() => {
-      loadData();
-    });
-
-    return () => {
-      supabase.unsubscribeFromChanges();
-    };
   }, []);
 
   // Save to both localStorage and Supabase

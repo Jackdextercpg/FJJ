@@ -560,7 +560,6 @@ const AdminMatches: React.FC = () => {
                 Adicionar Gol
               </button>
             </div>
-          </div>
 
           <button 
             onClick={handleSaveResult}

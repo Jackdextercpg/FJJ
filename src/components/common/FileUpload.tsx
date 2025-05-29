@@ -1,12 +1,15 @@
+
 import React, { useRef, useState } from 'react';
-import { Upload, X } from 'lucide-react';
+import { Upload, X, Loader2 } from 'lucide-react';
+import { useSupabase } from '../../contexts/SupabaseContext';
 
 interface FileUploadProps {
-  onFileSelect: (file: File) => void;
+  onFileSelect: (file: File, publicUrl?: string) => void;
   accept?: string;
   previewUrl?: string;
   onClear?: () => void;
   label?: string;
+  bucket?: 'teams' | 'players';
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({
@@ -14,20 +17,42 @@ const FileUpload: React.FC<FileUploadProps> = ({
   accept = "image/*",
   previewUrl,
   onClear,
-  label = "Selecionar arquivo"
+  label = "Selecionar arquivo",
+  bucket = 'teams'
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(previewUrl || null);
+  const [isUploading, setIsUploading] = useState(false);
+  const { uploadImage, isConnected } = useSupabase();
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
+    if (!file) return;
+
+    setIsUploading(true);
+
+    try {
+      let publicUrl: string | undefined;
+
+      if (isConnected) {
+        // Upload to Supabase Storage and get public URL
+        publicUrl = await uploadImage(file, bucket);
+        setPreview(publicUrl);
+      } else {
+        // Fallback to blob URL for local mode
+        const blobUrl = URL.createObjectURL(file);
+        setPreview(blobUrl);
+      }
+
+      onFileSelect(file, publicUrl);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      // Fallback to blob URL if upload fails
+      const blobUrl = URL.createObjectURL(file);
+      setPreview(blobUrl);
       onFileSelect(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -48,13 +73,23 @@ const FileUpload: React.FC<FileUploadProps> = ({
             alt="Preview" 
             className="w-full h-48 object-cover rounded-lg"
           />
-          <button
-            type="button"
-            onClick={handleClear}
-            className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          {!isUploading && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+          {isUploading && (
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
+              <div className="flex items-center text-white">
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                <span>Enviando...</span>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div 
@@ -72,6 +107,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
         accept={accept}
         onChange={handleFileSelect}
         className="hidden"
+        disabled={isUploading}
       />
     </div>
   );

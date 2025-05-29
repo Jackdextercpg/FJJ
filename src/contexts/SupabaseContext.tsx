@@ -16,6 +16,7 @@ interface SupabaseService {
   saveMatches: (matches: Match[]) => Promise<void>;
   saveTransfers: (transfers: Transfer[]) => Promise<void>;
   saveHistory: (history: ChampionshipHistory[]) => Promise<void>;
+  uploadImage: (file: File, bucket: 'teams' | 'players') => Promise<string>;
 }
 
 interface SupabaseContextType extends SupabaseService {
@@ -39,6 +40,10 @@ const createMockService = (): SupabaseService => ({
   saveMatches: async () => {},
   saveTransfers: async () => {},
   saveHistory: async () => {},
+  uploadImage: async (file: File) => {
+    // In local mode, return a blob URL (temporary)
+    return URL.createObjectURL(file);
+  },
 });
 
 // Real Supabase service
@@ -214,6 +219,31 @@ const createSupabaseService = (supabase: SupabaseClient): SupabaseService => ({
       if (error) throw error;
     } catch (error) {
       console.error('Error saving history:', error);
+    }
+  },
+
+  uploadImage: async (file: File, bucket: 'teams' | 'players') => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `${bucket}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
     }
   },
 });

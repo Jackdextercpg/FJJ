@@ -14,20 +14,20 @@ const AdminPlayers: React.FC = () => {
     deletePlayer,
     getTeamById
   } = useChampionship();
-  
+
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState({
     name: '',
     imageFile: null as File | null,
     imageUrl: '',
     teamId: ''
   });
-  
+
   const handleOpenAddForm = () => {
     setIsAdding(true);
     setIsEditing(null);
@@ -40,7 +40,7 @@ const AdminPlayers: React.FC = () => {
     setError(null);
     setSuccess(null);
   };
-  
+
   const handleOpenEditForm = (player: Player) => {
     setIsAdding(false);
     setIsEditing(player.id);
@@ -53,7 +53,7 @@ const AdminPlayers: React.FC = () => {
     setError(null);
     setSuccess(null);
   };
-  
+
   const handleCloseForm = () => {
     setIsAdding(false);
     setIsEditing(null);
@@ -74,17 +74,17 @@ const AdminPlayers: React.FC = () => {
       setError('Erro ao fazer upload do arquivo');
     }
   };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
-    
+
     if (!formData.name) {
       setError('O nome do jogador é obrigatório');
       return;
     }
-    
+
     try {
       if (isAdding) {
         // Add new player
@@ -93,7 +93,7 @@ const AdminPlayers: React.FC = () => {
           imageUrl: formData.imageUrl,
           teamId: formData.teamId || null
         });
-        
+
         setSuccess(`Jogador "${formData.name}" adicionado com sucesso`);
         setFormData({
           name: '',
@@ -105,14 +105,14 @@ const AdminPlayers: React.FC = () => {
         // Update existing player
         const player = players.find(p => p.id === isEditing);
         if (!player) return;
-        
+
         updatePlayer({
           ...player,
           name: formData.name,
           imageUrl: formData.imageUrl || player.imageUrl,
           teamId: formData.teamId || null
         });
-        
+
         setSuccess(`Jogador "${formData.name}" atualizado com sucesso`);
         setIsEditing(null);
       }
@@ -120,11 +120,11 @@ const AdminPlayers: React.FC = () => {
       setError('Erro ao salvar o jogador');
     }
   };
-  
+
   const handleDelete = (playerId: string) => {
     const player = players.find(p => p.id === playerId);
     if (!player) return;
-    
+
     if (confirm(`Tem certeza que deseja excluir o jogador "${player.name}"?`)) {
       try {
         deletePlayer(playerId);
@@ -134,17 +134,20 @@ const AdminPlayers: React.FC = () => {
       }
     }
   };
-  
+
   // Filter players by team
   const filteredPlayers = selectedTeam 
     ? players.filter(player => player.teamId === selectedTeam)
     : players;
 
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string | null>(null);
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold">Gerenciar Jogadores</h2>
-        
+
         {!isAdding && !isEditing && (
           <button 
             onClick={handleOpenAddForm} 
@@ -155,7 +158,7 @@ const AdminPlayers: React.FC = () => {
           </button>
         )}
       </div>
-      
+
       {error && (
         <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
           <div className="flex">
@@ -168,7 +171,7 @@ const AdminPlayers: React.FC = () => {
           </div>
         </div>
       )}
-      
+
       {success && (
         <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
           <div className="flex">
@@ -181,13 +184,13 @@ const AdminPlayers: React.FC = () => {
           </div>
         </div>
       )}
-      
+
       {(isAdding || isEditing) && (
         <div className="bg-gray-50 p-6 rounded-lg mb-6">
           <h3 className="text-lg font-semibold mb-4">
             {isAdding ? 'Adicionar Novo Jogador' : 'Editar Jogador'}
           </h3>
-          
+
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
               <label className="block text-sm font-medium mb-1">Nome do Jogador</label>
@@ -200,17 +203,23 @@ const AdminPlayers: React.FC = () => {
                 required
               />
             </div>
-            
+
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">Foto do Jogador</label>
-              <FileUpload
-                onFileSelect={handleFileUpload}
-                previewUrl={formData.imageUrl}
-                onClear={() => setFormData(prev => ({ ...prev, imageUrl: '', imageFile: null }))}
-                label="Upload da Foto"
-              />
+              <FileUpload 
+                    onFileSelect={(file, publicUrl) => {
+                      setSelectedFile(file);
+                      setUploadedPhotoUrl(publicUrl || null);
+                    }}
+                    onClear={() => {
+                      setSelectedFile(null);
+                      setUploadedPhotoUrl(null);
+                    }}
+                    label="Foto do jogador"
+                    bucket="players"
+                  />
             </div>
-            
+
             <div className="mb-4">
               <label className="block text-sm font-medium mb-1">Time</label>
               <select
@@ -226,7 +235,7 @@ const AdminPlayers: React.FC = () => {
                 ))}
               </select>
             </div>
-            
+
             <div className="flex gap-2">
               <button type="submit" className="btn btn-primary flex-1">
                 {isAdding ? 'Adicionar Jogador' : 'Salvar Alterações'}
@@ -242,7 +251,7 @@ const AdminPlayers: React.FC = () => {
           </form>
         </div>
       )}
-      
+
       <div className="mb-6">
         <label className="block text-sm font-medium mb-1">Filtrar por time</label>
         <select
@@ -258,12 +267,12 @@ const AdminPlayers: React.FC = () => {
           ))}
         </select>
       </div>
-      
+
       {filteredPlayers.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredPlayers.map(player => {
             const team = player.teamId ? getTeamById(player.teamId) : undefined;
-            
+
             return (
               <div key={player.id} className="card flex">
                 <div className="w-24 h-full bg-gray-200">
@@ -279,7 +288,7 @@ const AdminPlayers: React.FC = () => {
                     </div>
                   )}
                 </div>
-                
+
                 <div className="p-4 flex-grow flex flex-col justify-between">
                   <div>
                     <h3 className="font-semibold">{player.name}</h3>
@@ -292,7 +301,7 @@ const AdminPlayers: React.FC = () => {
                       </p>
                     )}
                   </div>
-                  
+
                   <div className="flex mt-2 gap-2">
                     <button 
                       onClick={() => handleOpenEditForm(player)} 

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '../lib/supabase';
 import { 
   Championship, 
   Team, 
@@ -20,62 +21,53 @@ interface ChampionshipContextType {
   pastChampions: ChampionshipHistory[];
   
   // Teams
-  addTeam: (team: Omit<Team, 'id' | 'createdAt' | 'updatedAt' | 'fjjdotyBalance' | 'players'>) => Team;
-  updateTeam: (team: Team) => void;
-  deleteTeam: (teamId: string) => void;
+  addTeam: (team: Omit<Team, 'id' | 'createdAt' | 'updatedAt' | 'fjjdotyBalance' | 'players'>) => Promise<Team>;
+  updateTeam: (team: Team) => Promise<void>;
+  deleteTeam: (teamId: string) => Promise<void>;
   getTeamById: (teamId: string) => Team | undefined;
   
   // Players
-  addPlayer: (player: Omit<Player, 'id' | 'createdAt' | 'updatedAt' | 'goals'>) => Player;
-  updatePlayer: (player: Player) => void;
-  deletePlayer: (playerId: string) => void;
+  addPlayer: (player: Omit<Player, 'id' | 'createdAt' | 'updatedAt' | 'goals'>) => Promise<Player>;
+  updatePlayer: (player: Player) => Promise<void>;
+  deletePlayer: (playerId: string) => Promise<void>;
   getPlayerById: (playerId: string) => Player | undefined;
   getTeamPlayers: (teamId: string) => Player[];
   
   // Matches
-  addMatch: (match: Omit<Match, 'id' | 'createdAt' | 'updatedAt'>) => Match;
-  updateMatch: (match: Match) => void;
-  updateMatchResult: (matchId: string, homeScore: number, awayScore: number, scorers: GoalScorer[]) => void;
-  deleteMatch: (matchId: string) => void;
+  addMatch: (match: Omit<Match, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Match>;
+  updateMatch: (match: Match) => Promise<void>;
+  updateMatchResult: (matchId: string, homeScore: number, awayScore: number, scorers: GoalScorer[]) => Promise<void>;
+  deleteMatch: (matchId: string) => Promise<void>;
   getMatchById: (matchId: string) => Match | undefined;
   getTeamMatches: (teamId: string) => Match[];
-  generateGroupMatches: () => void;
-  generateKnockoutMatches: () => void;
+  generateGroupMatches: () => Promise<void>;
+  generateKnockoutMatches: () => Promise<void>;
   
   // Championship
-  createChampionship: (name: string, season: string, maxTeams?: number, scheduleType?: 'random' | 'manual') => Championship;
-  updateChampionship: (championship: Championship) => void;
-  startChampionship: () => void;
-  advanceToKnockout: () => void;
-  finalizeChampionship: (winnerId: string, topScorerId: string, highlights: string) => void;
-  resetChampionship: () => void;
+  createChampionship: (name: string, season: string, maxTeams?: number, scheduleType?: 'random' | 'manual') => Promise<Championship>;
+  updateChampionship: (championship: Championship) => Promise<void>;
+  startChampionship: () => Promise<void>;
+  advanceToKnockout: () => Promise<void>;
+  finalizeChampionship: (winnerId: string, topScorerId: string, highlights: string) => Promise<void>;
+  resetChampionship: () => Promise<void>;
   
   // Standings and Stats
   calculateStandings: () => TeamStanding[];
   getTopScorers: (limit?: number) => Player[];
   
   // Transfers
-  transferPlayer: (playerId: string, fromTeamId: string | null, toTeamId: string, amount: number) => boolean;
-  addTransfer: (transfer: Omit<Transfer, 'id' | 'createdAt' | 'updatedAt'>) => Transfer;
+  transferPlayer: (playerId: string, fromTeamId: string | null, toTeamId: string, amount: number) => Promise<boolean>;
+  addTransfer: (transfer: Omit<Transfer, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Transfer>;
   getTeamTransfers: (teamId: string) => Transfer[];
   
   // History
-  addChampionshipHistory: (history: Omit<ChampionshipHistory, 'id' | 'createdAt' | 'updatedAt'>) => ChampionshipHistory;
+  addChampionshipHistory: (history: Omit<ChampionshipHistory, 'id' | 'createdAt' | 'updatedAt'>) => Promise<ChampionshipHistory>;
   
   // Loading state
   loading: boolean;
 }
 
 const ChampionshipContext = createContext<ChampionshipContextType | undefined>(undefined);
-
-const STORAGE_KEYS = {
-  CHAMPIONSHIP: 'fjj-championship',
-  TEAMS: 'fjj-teams',
-  PLAYERS: 'fjj-players',
-  MATCHES: 'fjj-matches',
-  TRANSFERS: 'fjj-transfers',
-  PAST_CHAMPIONS: 'fjj-past-champions',
-};
 
 export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children }) => {
   const [championship, setChampionship] = useState<Championship | null>(null);
@@ -87,339 +79,365 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const loadData = () => {
+    const loadData = async () => {
       try {
-        const championshipData = localStorage.getItem(STORAGE_KEYS.CHAMPIONSHIP);
-        const teamsData = localStorage.getItem(STORAGE_KEYS.TEAMS);
-        const playersData = localStorage.getItem(STORAGE_KEYS.PLAYERS);
-        const matchesData = localStorage.getItem(STORAGE_KEYS.MATCHES);
-        const transfersData = localStorage.getItem(STORAGE_KEYS.TRANSFERS);
-        const pastChampionsData = localStorage.getItem(STORAGE_KEYS.PAST_CHAMPIONS);
+        const [
+          { data: championshipData },
+          { data: teamsData },
+          { data: playersData },
+          { data: matchesData },
+          { data: transfersData },
+          { data: historyData }
+        ] = await Promise.all([
+          supabase.from('championships').select('*').maybeSingle(),
+          supabase.from('teams').select('*'),
+          supabase.from('players').select('*'),
+          supabase.from('matches').select('*'),
+          supabase.from('transfers').select('*'),
+          supabase.from('championship_history').select('*')
+        ]);
 
-        setChampionship(championshipData ? JSON.parse(championshipData) : null);
-        setTeams(teamsData ? JSON.parse(teamsData) : []);
-        setPlayers(playersData ? JSON.parse(playersData) : []);
-        setMatches(matchesData ? JSON.parse(matchesData) : []);
-        setTransfers(transfersData ? JSON.parse(transfersData) : []);
-        setPastChampions(pastChampionsData ? JSON.parse(pastChampionsData) : []);
+        setChampionship(championshipData);
+        setTeams(teamsData || []);
+        setPlayers(playersData || []);
+        setMatches(matchesData || []);
+        setTransfers(transfersData || []);
+        setPastChampions(historyData || []);
       } catch (error) {
-        console.error("Error loading data from localStorage:", error);
+        console.error("Error loading data:", error);
       } finally {
         setLoading(false);
       }
     };
 
     loadData();
+
+    const championshipSubscription = supabase
+      .channel('championship-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'championships' }, 
+        payload => {
+          if (payload.new) {
+            setChampionship(payload.new as Championship);
+          }
+        }
+      )
+      .subscribe();
+
+    const teamsSubscription = supabase
+      .channel('teams-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' },
+        async () => {
+          const { data } = await supabase.from('teams').select('*');
+          setTeams(data || []);
+        }
+      )
+      .subscribe();
+
+    const playersSubscription = supabase
+      .channel('players-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'players' },
+        async () => {
+          const { data } = await supabase.from('players').select('*');
+          setPlayers(data || []);
+        }
+      )
+      .subscribe();
+
+    const matchesSubscription = supabase
+      .channel('matches-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' },
+        async () => {
+          const { data } = await supabase.from('matches').select('*');
+          setMatches(data || []);
+        }
+      )
+      .subscribe();
+
+    const transfersSubscription = supabase
+      .channel('transfers-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transfers' },
+        async () => {
+          const { data } = await supabase.from('transfers').select('*');
+          setTransfers(data || []);
+        }
+      )
+      .subscribe();
+
+    const historySubscription = supabase
+      .channel('history-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'championship_history' },
+        async () => {
+          const { data } = await supabase.from('championship_history').select('*');
+          setPastChampions(data || []);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      championshipSubscription.unsubscribe();
+      teamsSubscription.unsubscribe();
+      playersSubscription.unsubscribe();
+      matchesSubscription.unsubscribe();
+      transfersSubscription.unsubscribe();
+      historySubscription.unsubscribe();
+    };
   }, []);
 
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem(STORAGE_KEYS.CHAMPIONSHIP, JSON.stringify(championship));
-      localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(teams));
-      localStorage.setItem(STORAGE_KEYS.PLAYERS, JSON.stringify(players));
-      localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(matches));
-      localStorage.setItem(STORAGE_KEYS.TRANSFERS, JSON.stringify(transfers));
-      localStorage.setItem(STORAGE_KEYS.PAST_CHAMPIONS, JSON.stringify(pastChampions));
+  const addTeam = async (teamData: Omit<Team, 'id' | 'createdAt' | 'updatedAt' | 'fjjdotyBalance' | 'players'>) => {
+    const { data, error } = await supabase
+      .from('teams')
+      .insert({
+        ...teamData,
+        fjjdoty_balance: 50000,
+        players: []
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  };
+
+  const updateTeam = async (team: Team) => {
+    const { error } = await supabase
+      .from('teams')
+      .update(team)
+      .eq('id', team.id);
+
+    if (error) throw error;
+  };
+
+  const deleteTeam = async (teamId: string) => {
+    const { error } = await supabase
+      .from('teams')
+      .delete()
+      .eq('id', teamId);
+
+    if (error) throw error;
+
+    // Update related players
+    await supabase
+      .from('players')
+      .update({ team_id: null })
+      .eq('team_id', teamId);
+  };
+
+  const addPlayer = async (playerData: Omit<Player, 'id' | 'createdAt' | 'updatedAt' | 'goals'>) => {
+    const { data, error } = await supabase
+      .from('players')
+      .insert({
+        ...playerData,
+        goals: 0
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    if (playerData.teamId) {
+      await supabase
+        .from('teams')
+        .update({
+          players: supabase.raw('array_append(players, ?)', [data.id])
+        })
+        .eq('id', playerData.teamId);
     }
-  }, [championship, teams, players, matches, transfers, pastChampions, loading]);
 
-  const addTeam = (teamData: Omit<Team, 'id' | 'createdAt' | 'updatedAt' | 'fjjdotyBalance' | 'players'>) => {
-    const now = new Date().toISOString();
-    const newTeam: Team = {
-      id: uuidv4(),
-      ...teamData,
-      fjjdotyBalance: 50000,
-      players: [],
-      createdAt: now,
-      updatedAt: now
-    };
-    
-    setTeams(prevTeams => [...prevTeams, newTeam]);
-    return newTeam;
+    return data;
   };
 
-  const updateTeam = (updatedTeam: Team) => {
-    setTeams(prevTeams => 
-      prevTeams.map(team => 
-        team.id === updatedTeam.id 
-          ? { ...updatedTeam, updatedAt: new Date().toISOString() } 
-          : team
-      )
-    );
+  const updatePlayer = async (player: Player) => {
+    const { error } = await supabase
+      .from('players')
+      .update(player)
+      .eq('id', player.id);
+
+    if (error) throw error;
   };
 
-  const deleteTeam = (teamId: string) => {
-    setPlayers(prevPlayers => 
-      prevPlayers.map(player => 
-        player.teamId === teamId 
-          ? { ...player, teamId: null, updatedAt: new Date().toISOString() } 
-          : player
-      )
-    );
-    
-    setTeams(prevTeams => prevTeams.filter(team => team.id !== teamId));
-    
-    if (championship && championship.teams.includes(teamId)) {
-      setChampionship(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          teams: prev.teams.filter(id => id !== teamId),
-          updatedAt: new Date().toISOString()
-        };
-      });
-    }
-  };
-
-  const getTeamById = (teamId: string) => {
-    return teams.find(team => team.id === teamId);
-  };
-
-  const addPlayer = (playerData: Omit<Player, 'id' | 'createdAt' | 'updatedAt' | 'goals'>) => {
-    const now = new Date().toISOString();
-    const newPlayer: Player = {
-      id: uuidv4(),
-      ...playerData,
-      goals: 0,
-      createdAt: now,
-      updatedAt: now
-    };
-    
-    setPlayers(prevPlayers => [...prevPlayers, newPlayer]);
-    
-    if (newPlayer.teamId) {
-      setTeams(prevTeams => 
-        prevTeams.map(team => 
-          team.id === newPlayer.teamId 
-            ? {
-                ...team,
-                players: [...team.players, newPlayer.id],
-                updatedAt: now
-              } 
-            : team
-        )
-      );
-    }
-    
-    return newPlayer;
-  };
-
-  const updatePlayer = (updatedPlayer: Player) => {
-    const existingPlayer = players.find(p => p.id === updatedPlayer.id);
-    
-    if (existingPlayer && existingPlayer.teamId !== updatedPlayer.teamId) {
-      if (existingPlayer.teamId) {
-        setTeams(prevTeams => 
-          prevTeams.map(team => 
-            team.id === existingPlayer.teamId 
-              ? {
-                  ...team,
-                  players: team.players.filter(id => id !== updatedPlayer.id),
-                  updatedAt: new Date().toISOString()
-                } 
-              : team
-          )
-        );
-      }
-      
-      if (updatedPlayer.teamId) {
-        setTeams(prevTeams => 
-          prevTeams.map(team => 
-            team.id === updatedPlayer.teamId 
-              ? {
-                  ...team,
-                  players: [...team.players, updatedPlayer.id],
-                  updatedAt: new Date().toISOString()
-                } 
-              : team
-          )
-        );
-      }
-    }
-    
-    setPlayers(prevPlayers => 
-      prevPlayers.map(player => 
-        player.id === updatedPlayer.id 
-          ? { ...updatedPlayer, updatedAt: new Date().toISOString() } 
-          : player
-      )
-    );
-  };
-
-  const deletePlayer = (playerId: string) => {
+  const deletePlayer = async (playerId: string) => {
     const player = players.find(p => p.id === playerId);
     
-    if (player && player.teamId) {
-      setTeams(prevTeams => 
-        prevTeams.map(team => 
-          team.id === player.teamId 
-            ? {
-                ...team,
-                players: team.players.filter(id => id !== playerId),
-                updatedAt: new Date().toISOString()
-              } 
-            : team
-        )
-      );
-    }
-    
-    setPlayers(prevPlayers => prevPlayers.filter(player => player.id !== playerId));
-  };
-
-  const getPlayerById = (playerId: string) => {
-    return players.find(player => player.id === playerId);
-  };
-
-  const getTeamPlayers = (teamId: string) => {
-    return players.filter(player => player.teamId === teamId);
-  };
-
-  const addMatch = (matchData: Omit<Match, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const now = new Date().toISOString();
-    const newMatch: Match = {
-      id: uuidv4(),
-      ...matchData,
-      createdAt: now,
-      updatedAt: now
-    };
-    
-    setMatches(prevMatches => [...prevMatches, newMatch]);
-    
-    if (championship) {
-      setChampionship(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          matches: [...prev.matches, newMatch.id],
-          updatedAt: now
-        };
-      });
-    }
-    
-    return newMatch;
-  };
-
-  const updateMatch = (updatedMatch: Match) => {
-    setMatches(prevMatches => 
-      prevMatches.map(match => 
-        match.id === updatedMatch.id 
-          ? { ...updatedMatch, updatedAt: new Date().toISOString() } 
-          : match
-      )
-    );
-  };
-
-  const updateMatchResult = (matchId: string, homeScore: number, awayScore: number, scorers: GoalScorer[]) => {
-    setMatches(prevMatches => 
-      prevMatches.map(match => {
-        if (match.id !== matchId) return match;
-        
-        return {
-          ...match,
-          homeScore,
-          awayScore,
-          played: true,
-          scorers,
-          updatedAt: new Date().toISOString()
-        };
-      })
-    );
-    
-    const playerGoalMap = new Map<string, number>();
-    
-    scorers.forEach(scorer => {
-      const currentGoals = playerGoalMap.get(scorer.playerId) || 0;
-      playerGoalMap.set(scorer.playerId, currentGoals + scorer.count);
-    });
-    
-    setPlayers(prevPlayers => 
-      prevPlayers.map(player => {
-        const goals = playerGoalMap.get(player.id) || 0;
-        if (goals === 0) return player;
-        
-        return {
-          ...player,
-          goals: player.goals + goals,
-          updatedAt: new Date().toISOString()
-        };
-      })
-    );
-    
-    const match = matches.find(m => m.id === matchId);
-    if (match) {
-      setTeams(prevTeams => 
-        prevTeams.map(team => {
-          if (team.id !== match.homeTeamId && team.id !== match.awayTeamId) {
-            return team;
-          }
-          
-          let fjjdotyEarned = 0;
-          const isHome = team.id === match.homeTeamId;
-          
-          if (isHome && homeScore > awayScore) {
-            fjjdotyEarned = 10000;
-          } else if (!isHome && awayScore > homeScore) {
-            fjjdotyEarned = 10000;
-          } else if (homeScore === awayScore) {
-            fjjdotyEarned = 3000;
-          } else {
-            fjjdotyEarned = 1000;
-          }
-          
-          return {
-            ...team,
-            fjjdotyBalance: team.fjjdotyBalance + fjjdotyEarned,
-            updatedAt: new Date().toISOString()
-          };
+    if (player?.teamId) {
+      await supabase
+        .from('teams')
+        .update({
+          players: supabase.raw('array_remove(players, ?)', [playerId])
         })
-      );
+        .eq('id', player.teamId);
     }
+
+    const { error } = await supabase
+      .from('players')
+      .delete()
+      .eq('id', playerId);
+
+    if (error) throw error;
   };
 
-  const deleteMatch = (matchId: string) => {
-    setMatches(prevMatches => prevMatches.filter(match => match.id !== matchId));
-    
+  const addMatch = async (matchData: Omit<Match, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const { data, error } = await supabase
+      .from('matches')
+      .insert(matchData)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    if (championship) {
+      await supabase
+        .from('championships')
+        .update({
+          matches: supabase.raw('array_append(matches, ?)', [data.id])
+        })
+        .eq('id', championship.id);
+    }
+
+    return data;
+  };
+
+  const updateMatch = async (match: Match) => {
+    const { error } = await supabase
+      .from('matches')
+      .update(match)
+      .eq('id', match.id);
+
+    if (error) throw error;
+  };
+
+  const updateMatchResult = async (matchId: string, homeScore: number, awayScore: number, scorers: GoalScorer[]) => {
+    const match = matches.find(m => m.id === matchId);
+    if (!match) throw new Error('Match not found');
+
+    // Update match
+    await supabase
+      .from('matches')
+      .update({
+        home_score: homeScore,
+        away_score: awayScore,
+        played: true,
+        scorers
+      })
+      .eq('id', matchId);
+
+    // Update player goals
+    for (const scorer of scorers) {
+      await supabase
+        .from('players')
+        .update({
+          goals: supabase.raw('goals + ?', [scorer.count])
+        })
+        .eq('id', scorer.playerId);
+    }
+
+    // Update team balances
+    const homeTeamUpdate = {
+      fjjdoty_balance: supabase.raw('fjjdoty_balance + ?', [
+        homeScore > awayScore ? 10000 : homeScore === awayScore ? 3000 : 1000
+      ])
+    };
+
+    const awayTeamUpdate = {
+      fjjdoty_balance: supabase.raw('fjjdoty_balance + ?', [
+        awayScore > homeScore ? 10000 : homeScore === awayScore ? 3000 : 1000
+      ])
+    };
+
+    await Promise.all([
+      supabase
+        .from('teams')
+        .update(homeTeamUpdate)
+        .eq('id', match.homeTeamId),
+      supabase
+        .from('teams')
+        .update(awayTeamUpdate)
+        .eq('id', match.awayTeamId)
+    ]);
+  };
+
+  const deleteMatch = async (matchId: string) => {
+    const { error } = await supabase
+      .from('matches')
+      .delete()
+      .eq('id', matchId);
+
+    if (error) throw error;
+
     if (championship && championship.matches.includes(matchId)) {
-      setChampionship(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          matches: prev.matches.filter(id => id !== matchId),
-          updatedAt: new Date().toISOString()
-        };
-      });
+      await supabase
+        .from('championships')
+        .update({
+          matches: supabase.raw('array_remove(matches, ?)', [matchId])
+        })
+        .eq('id', championship.id);
     }
   };
 
-  const getMatchById = (matchId: string) => {
-    return matches.find(match => match.id === matchId);
+  const createChampionship = async (
+    name: string,
+    season: string,
+    maxTeams: number = 6,
+    scheduleType: 'random' | 'manual' = 'random'
+  ) => {
+    const { data, error } = await supabase
+      .from('championships')
+      .insert({
+        name,
+        season,
+        status: 'setup',
+        teams: [],
+        matches: [],
+        winner: null,
+        max_teams: maxTeams,
+        schedule_type: scheduleType
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   };
 
-  const getTeamMatches = (teamId: string) => {
-    return matches.filter(match => 
-      match.homeTeamId === teamId || match.awayTeamId === teamId
-    );
+  const updateChampionship = async (championship: Championship) => {
+    const { error } = await supabase
+      .from('championships')
+      .update(championship)
+      .eq('id', championship.id);
+
+    if (error) throw error;
   };
 
-  const generateGroupMatches = () => {
-    if (!championship) {
-      return;
+  const startChampionship = async () => {
+    if (!championship || championship.teams.length !== championship.maxTeams) {
+      throw new Error('Invalid championship state');
     }
-    
-    if (championship.scheduleType === 'manual') {
-      return;
-    }
-    
+
+    // Reset player goals
+    await supabase
+      .from('players')
+      .update({ goals: 0 })
+      .in('team_id', championship.teams);
+
+    // Clear existing matches
+    await supabase
+      .from('matches')
+      .delete()
+      .in('id', championship.matches);
+
+    await generateGroupMatches();
+  };
+
+  const generateGroupMatches = async () => {
+    if (!championship || championship.scheduleType === 'manual') return;
+
     const teamIds = [...championship.teams];
-    const now = new Date().toISOString();
-    const newMatches: Match[] = [];
-    
+    const newMatches: Omit<Match, 'id' | 'createdAt' | 'updatedAt'>[] = [];
+
     for (let i = 0; i < teamIds.length; i++) {
       for (let j = i + 1; j < teamIds.length; j++) {
         const matchDay = Math.floor(i * teamIds.length / 2) + 1;
         
-        const newMatch: Match = {
-          id: uuidv4(),
+        newMatches.push({
           homeTeamId: teamIds[i],
           awayTeamId: teamIds[j],
           homeScore: null,
@@ -429,50 +447,41 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
           stage: 'group',
           scorers: [],
           matchDay,
-          isManual: false,
-          createdAt: now,
-          updatedAt: now
-        };
-        
-        newMatches.push(newMatch);
+          isManual: false
+        });
       }
     }
-    
-    setMatches(prev => [...prev, ...newMatches]);
-    
-    setChampionship(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        matches: [...prev.matches, ...newMatches.map(m => m.id)],
-        status: 'group',
-        updatedAt: now
-      };
-    });
-    
-    return newMatches;
+
+    const { data: createdMatches, error } = await supabase
+      .from('matches')
+      .insert(newMatches)
+      .select();
+
+    if (error) throw error;
+
+    await supabase
+      .from('championships')
+      .update({
+        matches: createdMatches.map(m => m.id),
+        status: 'group'
+      })
+      .eq('id', championship.id);
   };
 
-  const generateKnockoutMatches = () => {
-    if (!championship || championship.status !== 'group') {
-      return;
-    }
-    
+  const generateKnockoutMatches = async () => {
+    if (!championship || championship.status !== 'group') return;
+
     const standings = calculateStandings();
     const numTeamsInKnockout = championship.maxTeams >= 16 ? 8 : 4;
     const topTeams = standings.slice(0, numTeamsInKnockout).map(standing => standing.teamId);
-    
-    if (topTeams.length < numTeamsInKnockout) {
-      return;
-    }
-    
-    const now = new Date().toISOString();
-    const newMatches: Match[] = [];
-    
+
+    if (topTeams.length < numTeamsInKnockout) return;
+
+    const newMatches: Omit<Match, 'id' | 'createdAt' | 'updatedAt'>[] = [];
+
     if (numTeamsInKnockout === 8) {
       for (let i = 0; i < 4; i++) {
-        const quarterFinal: Match = {
-          id: uuidv4(),
+        newMatches.push({
           homeTeamId: topTeams[i],
           awayTeamId: topTeams[7 - i],
           homeScore: null,
@@ -482,184 +491,120 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
           stage: 'quarterfinal',
           scorers: [],
           matchDay: 1,
-          isManual: false,
-          createdAt: now,
-          updatedAt: now
-        };
-        newMatches.push(quarterFinal);
+          isManual: false
+        });
       }
     }
-    
+
     const semiFinalTeams = numTeamsInKnockout === 4 ? topTeams : ['TBD', 'TBD', 'TBD', 'TBD'];
-    
-    const semifinal1: Match = {
-      id: uuidv4(),
-      homeTeamId: semiFinalTeams[0],
-      awayTeamId: semiFinalTeams[3],
-      homeScore: null,
-      awayScore: null,
-      date: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString(),
-      played: false,
-      stage: 'semifinal',
-      scorers: [],
-      matchDay: numTeamsInKnockout === 8 ? 2 : 1,
-      isManual: false,
-      createdAt: now,
-      updatedAt: now
-    };
-    
-    const semifinal2: Match = {
-      id: uuidv4(),
-      homeTeamId: semiFinalTeams[1],
-      awayTeamId: semiFinalTeams[2],
-      homeScore: null,
-      awayScore: null,
-      date: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString(),
-      played: false,
-      stage: 'semifinal',
-      scorers: [],
-      matchDay: numTeamsInKnockout === 8 ? 2 : 1,
-      isManual: false,
-      createdAt: now,
-      updatedAt: now
-    };
-    
-    const final: Match = {
-      id: uuidv4(),
-      homeTeamId: 'TBD',
-      awayTeamId: 'TBD',
-      homeScore: null,
-      awayScore: null,
-      date: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
-      played: false,
-      stage: 'final',
-      scorers: [],
-      matchDay: numTeamsInKnockout === 8 ? 3 : 2,
-      isManual: false,
-      createdAt: now,
-      updatedAt: now
-    };
-    
-    newMatches.push(semifinal1, semifinal2, final);
-    
-    setMatches(prev => [...prev, ...newMatches]);
-    
-    setChampionship(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        matches: [...prev.matches, ...newMatches.map(m => m.id)],
-        status: 'knockout',
-        updatedAt: now
-      };
-    });
-    
-    return newMatches;
-  };
 
-  const createChampionship = (
-    name: string, 
-    season: string,
-    maxTeams: number = 6,
-    scheduleType: 'random' | 'manual' = 'random'
-  ) => {
-    const now = new Date().toISOString();
-    const newChampionship: Championship = {
-      id: uuidv4(),
-      name,
-      season,
-      status: 'setup',
-      teams: [],
-      matches: [],
-      winner: null,
-      maxTeams,
-      scheduleType,
-      createdAt: now,
-      updatedAt: now
-    };
-    
-    setChampionship(newChampionship);
-    return newChampionship;
-  };
-
-  const updateChampionship = (updatedChampionship: Championship) => {
-    setChampionship({
-      ...updatedChampionship,
-      updatedAt: new Date().toISOString()
-    });
-  };
-
-  const startChampionship = () => {
-    if (!championship || championship.teams.length !== championship.maxTeams) {
-      return false;
-    }
-    
-    setPlayers(prevPlayers => 
-      prevPlayers.map(player => ({
-        ...player,
-        goals: 0,
-        updatedAt: new Date().toISOString()
-      }))
+    newMatches.push(
+      {
+        homeTeamId: semiFinalTeams[0],
+        awayTeamId: semiFinalTeams[3],
+        homeScore: null,
+        awayScore: null,
+        date: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString(),
+        played: false,
+        stage: 'semifinal',
+        scorers: [],
+        matchDay: numTeamsInKnockout === 8 ? 2 : 1,
+        isManual: false
+      },
+      {
+        homeTeamId: semiFinalTeams[1],
+        awayTeamId: semiFinalTeams[2],
+        homeScore: null,
+        awayScore: null,
+        date: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString(),
+        played: false,
+        stage: 'semifinal',
+        scorers: [],
+        matchDay: numTeamsInKnockout === 8 ? 2 : 1,
+        isManual: false
+      },
+      {
+        homeTeamId: 'TBD',
+        awayTeamId: 'TBD',
+        homeScore: null,
+        awayScore: null,
+        date: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+        played: false,
+        stage: 'final',
+        scorers: [],
+        matchDay: numTeamsInKnockout === 8 ? 3 : 2,
+        isManual: false
+      }
     );
-    
-    setMatches([]);
-    
-    generateGroupMatches();
-    
-    return true;
+
+    const { data: createdMatches, error } = await supabase
+      .from('matches')
+      .insert(newMatches)
+      .select();
+
+    if (error) throw error;
+
+    await supabase
+      .from('championships')
+      .update({
+        matches: createdMatches.map(m => m.id),
+        status: 'knockout'
+      })
+      .eq('id', championship.id);
   };
 
-  const advanceToKnockout = () => {
-    if (!championship) return false;
-    
+  const advanceToKnockout = async () => {
+    if (!championship) return;
+
     const groupMatches = matches.filter(match => match.stage === 'group');
     const allPlayed = groupMatches.every(match => match.played);
-    
-    if (!allPlayed) {
-      return false;
-    }
-    
-    generateKnockoutMatches();
-    
-    return true;
+
+    if (!allPlayed) return;
+
+    await generateKnockoutMatches();
   };
 
-  const finalizeChampionship = (winnerId: string, topScorerId: string, highlights: string) => {
-    if (!championship) return false;
-    
-    const championshipHistory: ChampionshipHistory = {
-      id: uuidv4(),
+  const finalizeChampionship = async (winnerId: string, topScorerId: string, highlights: string) => {
+    if (!championship) return;
+
+    await supabase
+      .from('championships')
+      .update({
+        status: 'finished',
+        winner: winnerId
+      })
+      .eq('id', championship.id);
+
+    await addChampionshipHistory({
       season: championship.season,
       championId: winnerId,
-      topScorerId: topScorerId,
-      finalHighlights: highlights,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    setPastChampions(prev => [...prev, championshipHistory]);
-    
-    setChampionship(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        status: 'finished',
-        winner: winnerId,
-        updatedAt: new Date().toISOString()
-      };
+      topScorerId,
+      finalHighlights: highlights
     });
-    
-    return true;
   };
 
-  const resetChampionship = () => {
-    setChampionship(null);
-    setMatches([]);
+  const resetChampionship = async () => {
+    if (!championship) return;
+
+    await supabase
+      .from('championships')
+      .update({
+        status: 'setup',
+        teams: [],
+        matches: [],
+        winner: null
+      })
+      .eq('id', championship.id);
+
+    await supabase
+      .from('matches')
+      .delete()
+      .in('id', championship.matches);
   };
 
   const calculateStandings = (): TeamStanding[] => {
     const teamStandings = new Map<string, TeamStanding>();
-    
+
     teams.forEach(team => {
       teamStandings.set(team.id, {
         teamId: team.id,
@@ -673,25 +618,25 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
         goalDifference: 0
       });
     });
-    
+
     matches
       .filter(match => match.played && match.stage === 'group')
       .forEach(match => {
         const homeTeamStanding = teamStandings.get(match.homeTeamId);
         const awayTeamStanding = teamStandings.get(match.awayTeamId);
-        
+
         if (!homeTeamStanding || !awayTeamStanding || match.homeScore === null || match.awayScore === null) {
           return;
         }
-        
+
         homeTeamStanding.played += 1;
         homeTeamStanding.goalsFor += match.homeScore;
         homeTeamStanding.goalsAgainst += match.awayScore;
-        
+
         awayTeamStanding.played += 1;
         awayTeamStanding.goalsFor += match.awayScore;
         awayTeamStanding.goalsAgainst += match.homeScore;
-        
+
         if (match.homeScore > match.awayScore) {
           homeTeamStanding.points += 3;
           homeTeamStanding.won += 1;
@@ -706,25 +651,25 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
           homeTeamStanding.drawn += 1;
           awayTeamStanding.drawn += 1;
         }
-        
+
         homeTeamStanding.goalDifference = homeTeamStanding.goalsFor - homeTeamStanding.goalsAgainst;
         awayTeamStanding.goalDifference = awayTeamStanding.goalsFor - awayTeamStanding.goalsAgainst;
       });
-    
+
     return Array.from(teamStandings.values())
       .sort((a, b) => {
         if (a.points !== b.points) {
           return b.points - a.points;
         }
-        
+
         if (a.goalDifference !== b.goalDifference) {
           return b.goalDifference - a.goalDifference;
         }
-        
+
         if (a.goalsFor !== b.goalsFor) {
           return b.goalsFor - a.goalsFor;
         }
-        
+
         const teamA = teams.find(team => team.id === a.teamId);
         const teamB = teams.find(team => team.id === b.teamId);
         return (teamA?.name || '').localeCompare(teamB?.name || '');
@@ -738,114 +683,75 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
       .slice(0, limit);
   };
 
-  const transferPlayer = (playerId: string, fromTeamId: string | null, toTeamId: string, amount: number): boolean => {
+  const transferPlayer = async (
+    playerId: string,
+    fromTeamId: string | null,
+    toTeamId: string,
+    amount: number
+  ): Promise<boolean> => {
     const player = players.find(p => p.id === playerId);
     const toTeam = teams.find(t => t.id === toTeamId);
-    
-    if (!player || !toTeam) {
+
+    if (!player || !toTeam || toTeam.fjjdotyBalance < amount) {
       return false;
     }
-    
+
     if (fromTeamId) {
       const fromTeam = teams.find(t => t.id === fromTeamId);
-      if (!fromTeam) {
-        return false;
-      }
-      
-      if (toTeam.fjjdotyBalance < amount) {
-        return false;
-      }
-      
-      setTeams(prevTeams => 
-        prevTeams.map(team => {
-          if (team.id === fromTeamId) {
-            return {
-              ...team,
-              fjjdotyBalance: team.fjjdotyBalance + amount,
-              players: team.players.filter(id => id !== playerId),
-              updatedAt: new Date().toISOString()
-            };
-          }
-          if (team.id === toTeamId) {
-            return {
-              ...team,
-              fjjdotyBalance: team.fjjdotyBalance - amount,
-              players: [...team.players, playerId],
-              updatedAt: new Date().toISOString()
-            };
-          }
-          return team;
-        })
-      );
-    } else {
-      if (toTeam.fjjdotyBalance < amount) {
-        return false;
-      }
-      
-      setTeams(prevTeams => 
-        prevTeams.map(team => {
-          if (team.id === toTeamId) {
-            return {
-              ...team,
-              fjjdotyBalance: team.fjjdotyBalance - amount,
-              players: [...team.players, playerId],
-              updatedAt: new Date().toISOString()
-            };
-          }
-          return team;
-        })
-      );
+      if (!fromTeam) return false;
+
+      await supabase.from('teams').update({
+        fjjdoty_balance: fromTeam.fjjdotyBalance + amount,
+        players: fromTeam.players.filter(id => id !== playerId)
+      }).eq('id', fromTeamId);
     }
-    
-    setPlayers(prevPlayers => 
-      prevPlayers.map(p => 
-        p.id === playerId 
-          ? { ...p, teamId: toTeamId, updatedAt: new Date().toISOString() } 
-          : p
-      )
-    );
-    
-    addTransfer({
+
+    await supabase.from('teams').update({
+      fjjdoty_balance: toTeam.fjjdotyBalance - amount,
+      players: [...toTeam.players, playerId]
+    }).eq('id', toTeamId);
+
+    await supabase.from('players').update({
+      team_id: toTeamId
+    }).eq('id', playerId);
+
+    await addTransfer({
       playerId,
       fromTeamId,
       toTeamId,
       amount,
-      date: new Date().toISOString(),
+      date: new Date().toISOString()
     });
-    
+
     return true;
   };
 
-  const addTransfer = (transferData: Omit<Transfer, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const now = new Date().toISOString();
-    const newTransfer: Transfer = {
-      id: uuidv4(),
-      ...transferData,
-      createdAt: now,
-      updatedAt: now
-    };
-    
-    setTransfers(prev => [...prev, newTransfer]);
-    return newTransfer;
+  const addTransfer = async (transferData: Omit<Transfer, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const { data, error } = await supabase
+      .from('transfers')
+      .insert(transferData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   };
 
   const getTeamTransfers = (teamId: string) => {
-    return transfers.filter(transfer => 
+    return transfers.filter(transfer =>
       transfer.fromTeamId === teamId || transfer.toTeamId === teamId
     );
   };
 
-  const addChampionshipHistory = (historyData: Omit<ChampionshipHistory, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const now = new Date().toISOString();
-    const newHistory: ChampionshipHistory = {
-      id: uuidv4(),
-      ...historyData,
-      createdAt: now,
-      updatedAt: now
-    };
-    
-    setPastChampions(prev => [...prev, newHistory]);
-    return newHistory;
+  const addChampionshipHistory = async (historyData: Omit<ChampionshipHistory, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const { data, error } = await supabase
+      .from('championship_history')
+      .insert(historyData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   };
 
   const value: ChampionshipContextType = {
@@ -856,42 +762,36 @@ export const ChampionshipProvider: React.FC<{children: ReactNode}> = ({ children
     transfers,
     pastChampions,
     loading,
-    
     addTeam,
     updateTeam,
     deleteTeam,
-    getTeamById,
-    
-    
+    getTeamById: (teamId) => teams.find(team => team.id === teamId),
     addPlayer,
     updatePlayer,
     deletePlayer,
-    getPlayerById,
-    getTeamPlayers,
-    
+    getPlayerById: (playerId) => players.find(player => player.id === playerId),
+    getTeamPlayers: (teamId) => players.filter(player => player.teamId === teamId),
     addMatch,
     updateMatch,
     updateMatchResult,
     deleteMatch,
-    getMatchById,
-    getTeamMatches,
+    getMatchById: (matchId) => matches.find(match => match.id === matchId),
+    getTeamMatches: (teamId) => matches.filter(match =>
+      match.homeTeamId === teamId || match.awayTeamId === teamId
+    ),
     generateGroupMatches,
     generateKnockoutMatches,
-    
     createChampionship,
     updateChampionship,
     startChampionship,
     advanceToKnockout,
     finalizeChampionship,
     resetChampionship,
-    
     calculateStandings,
     getTopScorers,
-    
     transferPlayer,
     addTransfer,
     getTeamTransfers,
-    
     addChampionshipHistory
   };
 

@@ -1,15 +1,15 @@
-
 import React, { useRef, useState } from 'react';
-import { Upload, X, Loader2 } from 'lucide-react';
-import { useSupabase } from '../../contexts/SupabaseContext';
+import { Upload, X } from 'lucide-react';
+import { uploadImage } from '../../lib/supabase';
 
 interface FileUploadProps {
-  onFileSelect: (file: File, publicUrl?: string) => void;
+  onFileSelect: (url: string) => void;
   accept?: string;
   previewUrl?: string;
   onClear?: () => void;
   label?: string;
-  bucket?: 'teams' | 'players';
+  bucket?: string;
+  folder?: string;
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({
@@ -18,41 +18,33 @@ const FileUpload: React.FC<FileUploadProps> = ({
   previewUrl,
   onClear,
   label = "Selecionar arquivo",
-  bucket = 'teams'
+  bucket = "images",
+  folder
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(previewUrl || null);
-  const [isUploading, setIsUploading] = useState(false);
-  const { uploadImage, isConnected } = useSupabase();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setIsUploading(true);
-
     try {
-      let publicUrl: string | undefined;
+      setLoading(true);
+      setError(null);
 
-      if (isConnected) {
-        // Upload to Supabase Storage and get public URL
-        publicUrl = await uploadImage(file, bucket);
-        setPreview(publicUrl);
-      } else {
-        // Fallback to blob URL for local mode
-        const blobUrl = URL.createObjectURL(file);
-        setPreview(blobUrl);
-      }
-
-      onFileSelect(file, publicUrl);
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      // Fallback to blob URL if upload fails
-      const blobUrl = URL.createObjectURL(file);
-      setPreview(blobUrl);
-      onFileSelect(file);
+      // Upload to Supabase Storage and get public URL
+      const publicUrl = await uploadImage(file, bucket, folder);
+      
+      // Update preview and notify parent
+      setPreview(publicUrl);
+      onFileSelect(publicUrl);
+    } catch (err) {
+      console.error('Upload error:', err);
+      setError('Erro ao fazer upload da imagem');
     } finally {
-      setIsUploading(false);
+      setLoading(false);
     }
   };
 
@@ -61,11 +53,18 @@ const FileUpload: React.FC<FileUploadProps> = ({
       fileInputRef.current.value = '';
     }
     setPreview(null);
+    setError(null);
     onClear?.();
   };
 
   return (
     <div className="relative">
+      {error && (
+        <div className="bg-red-50 text-red-500 p-2 rounded-md mb-2 text-sm">
+          {error}
+        </div>
+      )}
+
       {preview ? (
         <div className="relative">
           <img 
@@ -73,32 +72,26 @@ const FileUpload: React.FC<FileUploadProps> = ({
             alt="Preview" 
             className="w-full h-48 object-cover rounded-lg"
           />
-          {!isUploading && (
-            <button
-              type="button"
-              onClick={handleClear}
-              className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-          {isUploading && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
-              <div className="flex items-center text-white">
-                <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                <span>Enviando...</span>
-              </div>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={handleClear}
+            className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       ) : (
         <div 
-          className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors"
-          onClick={() => fileInputRef.current?.click()}
+          className={`border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors ${
+            loading ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+          onClick={() => !loading && fileInputRef.current?.click()}
         >
           <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-          <p className="text-sm text-gray-600">{label}</p>
-          <p className="text-xs text-gray-500 mt-1">Clique para selecionar</p>
+          <p className="text-sm text-gray-600">{loading ? 'Enviando...' : label}</p>
+          <p className="text-xs text-gray-500 mt-1">
+            {loading ? 'Aguarde...' : 'Clique para selecionar'}
+          </p>
         </div>
       )}
       <input
@@ -107,7 +100,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
         accept={accept}
         onChange={handleFileSelect}
         className="hidden"
-        disabled={isUploading}
+        disabled={loading}
       />
     </div>
   );

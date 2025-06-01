@@ -1,0 +1,137 @@
+/* Admin Panel Styles */
+.admin-panel {
+  background-color: var(--background);
+}
+
+.admin-panel .header {
+  background-color: var(--primary);
+}
+
+.admin-panel .logo h1,
+.admin-panel .nav-link {
+  color: white;
+}
+
+.admin-panel .nav-link:hover,
+.admin-panel .nav-link.active {
+  color: var(--neutral-200);
+}
+
+.admin-panel .nav-link.active::after {
+  background-color: white;
+}
+
+/* Dashboard */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-lg);
+  margin-top: var(--spacing-lg);
+}
+
+.dashboard-card {
+  background-color: var(--card-bg);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.dashboard-card h3 {
+  color: var(--primary);
+  margin-bottom: var(--spacing-md);
+  font-size: var(--font-size-lg);
+}
+
+/* Tournament Setup */
+.format-options,
+.team-count-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-sm);
+}
+
+.format-option,
+.team-count-option {
+  cursor: pointer;
+}
+
+.format-option input,
+.team-count-option input {
+  display: none;
+}
+
+.format-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-lg);
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  transition: all var(--transition-normal);
+}
+
+.format-content i {
+  font-size: 24px;
+  margin-bottom: var(--spacing-sm);
+  color: var(--neutral-600);
+}
+
+.format-option input:checked + .format-content {
+  border-color: var(--primary);
+  background-color: var(--primary-light);
+  color: white;
+}
+
+.format-option input:checked + .format-content i {
+  color: white;
+}
+
+.team-count-option span {
+  display: block;
+  padding: var(--spacing-md);
+  text-align: center;
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  transition: all var(--transition-normal);
+}
+
+.team-count-option input:checked + span {
+  border-color: var(--primary);
+  background-color: var(--primary);
+  color: white;
+}
+
+/* Tournament Management */
+.tournament-phases {
+  display: flex;
+  margin-bottom: var(--spacing-lg);
+}
+
+.phase-tab {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 2px solid var(--border-color);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.phase-tab.active {
+  border-bottom-color: var(--primary);
+  color: var(--primary);
+}
+
+.tournament-content {
+  margin-top: var(--spacing-lg);
+}
+
+/* Responsive */
+@media screen and (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .format-options,
+  .team-count-options {
+    grid-template-columns: 1fr;
+  }
+}
